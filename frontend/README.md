@@ -1,12 +1,34 @@
-# React + Vite
+# 🎯 Gestão 360 OL - Sistema Completo de Gestão
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema integrado para gerenciamento completo de certificações, cursos, formações e desenvolvimento profissional.
 
-Currently, two official plugins are available:
+## ✨ Funcionalidades
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### 🎓 **Módulo Certificações & Desenvolvimento**
+- ✅ **CRUD Completo** - Certificações, cursos e formações
+- ✅ **Filtros Dinâmicos** - Por tipo, vendor/plataforma/instituição, área
+- ✅ **Estatísticas em Tempo Real** - Dashboard com métricas detalhadas
+- ✅ **Gestão de Colaboradores** - Vincular analistas aos conhecimentos
+- ✅ **Controle de Validade** - Alertas de expiração e renovação
+- ✅ **Interface Moderna** - Design responsivo com cores corporativas OL
 
-## Expanding the ESLint configuration
+### 📊 **Dashboard & Analytics**
+- 📈 Certificações obtidas, obrigatórias, desejadas
+- ⚠️ Alertas de certificações expirando em 30 dias
+- 🎯 Tracking de metas de desenvolvimento por colaborador
+- 📋 Relatórios detalhados por equipe e área
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## 🎨 **Design System**
+- **Paleta OL** - Cores corporativas padronizadas
+- **Componentes Reutilizáveis** - Modais, cards, formulários
+- **UX/UI Consistente** - Interface limpa e intuitiva
+
+## 🚀 **Tecnologias**
+
+- **React 18** + **Vite** - Frontend moderno
+- **Tailwind CSS** - Framework de estilização
+- **React Hooks** - Gerenciamento de estado
+- **Componentes Modulares** - Arquitetura escalável
+
+## 📦 **Instalação**
+
