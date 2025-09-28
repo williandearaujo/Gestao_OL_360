@@ -77,3 +77,59 @@ temp/
 
 # Outros
 Token.txt
+
+# === PYTHON ADICIONAL ===
+*.py[cod]
+__pycache__/
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# === BANCOS DE DADOS ===
+backend/*.db
+backend/*.sqlite
+backend/*.sqlite3
+backend/gestao360.db
+
+# === NODE.JS ===
+frontend/node_modules/
+frontend/build/
+frontend/dist/
+frontend/.env
+
+# === IDE - PYCHARM ===
+.idea/
+*.iml
+
+# === LOGS ===
+*.log
+logs/
+
+# === TEMPORÁRIOS ===
+backup_*/
+*.backup
+*.tmp
+
+# === SEGURANÇA ===
+*.key
+*.pem
+.env
+.env.local
+
+# === PYTHON CACHE ===
+__pycache__/
+*.py[cod]
+*.pyc
+
+# === SCRIPTS TEMPORÁRIOS ===
+backend/create_simple_admin.py
+backend/setup.database.py
+backend/test_current_backend.py
+backend/upgrade_to_professional.py
+backend/fix_relationships.py
+backend/create_initial_data.py
+
+# === LOGS ===
+*.log

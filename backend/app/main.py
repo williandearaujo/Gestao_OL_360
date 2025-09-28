@@ -1,41 +1,41 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from .database import create_tables
+from .routers import employees, knowledge, auth
 
-app = FastAPI(title="Gestão OL 360 API", version="1.0.0")
+app = FastAPI(
+    title="Gestão 360 - OL Tecnologia",
+    description="Sistema completo de gestão de colaboradores e conhecimentos",
+    version="1.0.0"
+)
 
-# Configurar CORS para permitir requisições do frontend
+# Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Criar tabelas na inicialização
+@app.on_event("startup")
+def startup_event():
+    create_tables()
+
+# Incluir routers
+app.include_router(employees.router, prefix="/api")
+app.include_router(knowledge.router, prefix="/api")
+app.include_router(auth.router, prefix="/api")
+
 @app.get("/")
-def read_root():
-    return {"message": "Backend Gestão OL 360 está rodando!", "version": "1.0.0"}
+def root():
+    return {
+        "message": "Gestão 360 API",
+        "version": "1.0.0",
+        "docs": "/docs"
+    }
 
 @app.get("/health")
 def health_check():
-    return {"status": "OK", "service": "Gestão OL 360 API"}
-
-# Rotas básicas de exemplo
-@app.get("/api/colaboradores")
-def get_colaboradores():
-    return [
-        {
-            "id": 1,
-            "nome": "João Silva",
-            "cargo": "Analista Sênior",
-            "equipe": "Red Team",
-            "equipe_cor": "#e74c3c"
-        },
-        {
-            "id": 2,
-            "nome": "Ana Costa", 
-            "cargo": "Analista Júnior",
-            "equipe": "Blue Team",
-            "equipe_cor": "#3498db"
-        }
-    ]
+    return {"status": "ok", "message": "API funcionando perfeitamente"}
