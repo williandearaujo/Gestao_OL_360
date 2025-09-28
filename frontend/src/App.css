@@ -1,68 +1,14 @@
-/* App.css - Gestão OL 360 - OL Tecnologia */
+/* App.css - Gestão OL 360 - APENAS UTILITÁRIOS */
 
-/* Reset básico e configurações globais */
-* {
-  margin: 0;
-  padding: 0;
+/* Box-sizing global (se necessário) */
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
-/* Variáveis CSS para cores da OL Tecnologia */
-:root {
-  --ol-brand-primary: #6B003E;
-  --ol-brand-light: #bb3387;
-  --ol-gray-base: #cccccc;
-  --ol-gray-dark: #666666;
-  --ol-gray-light: #f9f9f9;
-}
-
-/* Body e html */
-html, body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  background-color: var(--ol-gray-light);
-}
-
-/* Container principal */
-#root {
-  min-height: 100vh;
-  width: 100%;
-}
-
-/* Cards personalizados */
-.dashboard-card {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  border-left: 4px solid transparent;
-}
-
-.dashboard-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  transform: translateY(-2px);
-}
-
-/* Ícones e elementos visuais */
-.status-indicator {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  display: inline-block;
-  margin-right: 8px;
-}
-
-.status-indicator.online {
-  background-color: #10b981;
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-}
-
-.status-indicator.active {
-  background-color: var(--ol-brand-primary);
-  box-shadow: 0 0 0 2px rgba(107, 0, 62, 0.2);
+/* Prevenir overflow horizontal global */
+html, body, #root {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 /* Animações suaves */
@@ -81,43 +27,22 @@ html, body {
   }
 }
 
-/* Responsividade */
-@media (max-width: 768px) {
-  .dashboard-card {
-    padding: 1rem;
-  }
-}
-
-/* Scrollbar personalizada */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--ol-brand-primary);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--ol-brand-light);
-}
-
 /* Focus para acessibilidade */
-button:focus,
-input:focus {
-  outline: 2px solid var(--ol-brand-primary);
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid #c9252c;
   outline-offset: 2px;
 }
 
-/* Utilitários da marca */
-.text-brand-primary {
-  color: var(--ol-brand-primary);
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
 }
 
-.bg-brand-primary {
-  background-color: var(--ol-brand-primary);
+/* Print styles */
+@media print {
+  * {
+    background: white !important;
+    color: black !important;
+  }
 }

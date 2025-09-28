@@ -338,55 +338,55 @@ const CertificationsPage = ({ onBackToDashboard }) => {
     setEditingCert(null);
   };
 
-  // 🆕 FILTROS DINÂMICOS BASEADOS NO TIPO SELECIONADO
-const filteredCertifications = useMemo(() => {
-  return certifications.filter(cert => {
-    const matchesSearch = !filters.search || 
-      cert.nome.toLowerCase().includes(filters.search.toLowerCase()) ||
-      cert.codigo.toLowerCase().includes(filters.search.toLowerCase());
-    const matchesVendor = !filters.vendor || cert.vendor === filters.vendor;
-    const matchesArea = !filters.area || cert.area === filters.area;
-    const matchesTipo = !filters.tipo || cert.tipo === filters.tipo;
-    return matchesSearch && matchesVendor && matchesArea && matchesTipo;
-  });
-}, [certifications, filters]);
+  // Filtros dinâmicos baseados no tipo selecionado
+  const filteredCertifications = useMemo(() => {
+    return certifications.filter(cert => {
+      const matchesSearch = !filters.search || 
+        cert.nome.toLowerCase().includes(filters.search.toLowerCase()) ||
+        cert.codigo.toLowerCase().includes(filters.search.toLowerCase());
+      const matchesVendor = !filters.vendor || cert.vendor === filters.vendor;
+      const matchesArea = !filters.area || cert.area === filters.area;
+      const matchesTipo = !filters.tipo || cert.tipo === filters.tipo;
+      return matchesSearch && matchesVendor && matchesArea && matchesTipo;
+    });
+  }, [certifications, filters]);
 
-// 🆕 VENDORS E AREAS DINÂMICOS BASEADOS NO TIPO
-const vendors = useMemo(() => {
-  const certsPorTipo = filters.tipo 
-    ? certifications.filter(cert => cert.tipo === filters.tipo)
-    : certifications;
-  return [...new Set(certsPorTipo.map(cert => cert.vendor))].sort();
-}, [certifications, filters.tipo]);
+  // Vendors e areas dinâmicos baseados no tipo
+  const vendors = useMemo(() => {
+    const certsPorTipo = filters.tipo 
+      ? certifications.filter(cert => cert.tipo === filters.tipo)
+      : certifications;
+    return [...new Set(certsPorTipo.map(cert => cert.vendor))].sort();
+  }, [certifications, filters.tipo]);
 
-const areas = useMemo(() => {
-  const certsPorTipo = filters.tipo 
-    ? certifications.filter(cert => cert.tipo === filters.tipo)
-    : certifications;
-  return [...new Set(certsPorTipo.map(cert => cert.area).filter(Boolean))].sort();
-}, [certifications, filters.tipo]);
+  const areas = useMemo(() => {
+    const certsPorTipo = filters.tipo 
+      ? certifications.filter(cert => cert.tipo === filters.tipo)
+      : certifications;
+    return [...new Set(certsPorTipo.map(cert => cert.area).filter(Boolean))].sort();
+  }, [certifications, filters.tipo]);
 
-// 🆕 FUNÇÃO PARA LIMPAR FILTROS QUANDO MUDA TIPO
-const handleTipoChange = (novoTipo) => {
-  setFilters(prev => ({
-    ...prev,
-    tipo: novoTipo,
-    vendor: '', // Limpa vendor
-    area: ''    // Limpa área
-  }));
-};
+  // Função para limpar filtros quando muda tipo
+  const handleTipoChange = (novoTipo) => {
+    setFilters(prev => ({
+      ...prev,
+      tipo: novoTipo,
+      vendor: '', // Limpa vendor
+      area: ''    // Limpa área
+    }));
+  };
 
- const handleAddCertification = (e) => {
-  e.preventDefault();
-  const newId = Math.max(...certifications.map(c => c.id)) + 1;
-  setCertifications(prev => [...prev, {
-    ...newCert,
-    id: newId,
-    validade_meses: (newCert.tipo === 'CURSO' || newCert.tipo === 'FORMACAO') ? null : (newCert.validade_meses ? parseInt(newCert.validade_meses) : null)
-  }]);
-  setNewCert({ nome: '', codigo: '', vendor: '', area: '', tipo: 'CERTIFICACAO', link: '', validade_meses: '', nivel_formacao: '' });
-  setShowAddModal(false);
-};
+  const handleAddCertification = (e) => {
+    e.preventDefault();
+    const newId = Math.max(...certifications.map(c => c.id)) + 1;
+    setCertifications(prev => [...prev, {
+      ...newCert,
+      id: newId,
+      validade_meses: (newCert.tipo === 'CURSO' || newCert.tipo === 'FORMACAO') ? null : (newCert.validade_meses ? parseInt(newCert.validade_meses) : null)
+    }]);
+    setNewCert({ nome: '', codigo: '', vendor: '', area: '', tipo: 'CERTIFICACAO', link: '', validade_meses: '', nivel_formacao: '' });
+    setShowAddModal(false);
+  };
 
   // Footer funcionando
   const renderFooter = (cert) => {
@@ -436,8 +436,9 @@ const handleTipoChange = (novoTipo) => {
   };
 
   return (
-    <div className="min-h-screen bg-ol-gray-50 p-3 sm:p-6" style={{ minWidth: '100vw' }}>
-      <div className="w-full min-w-full" style={{ maxWidth: 'none' }}>
+    // 🆕 CONTAINER SEM FORÇAR LARGURA - SEM BARRA HORIZONTAL
+    <div className="w-full min-h-screen bg-ol-gray-50">
+      <div className="w-full max-w-none mx-auto p-3 sm:p-4 lg:p-6">
         
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
@@ -642,82 +643,82 @@ const handleTipoChange = (novoTipo) => {
           </div>
         </div>
 
-        {/* Filtros */}
-        {/* 🆕 FILTROS COM VENDORS E AREAS DINÂMICOS */}
-<div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 mb-4 sm:mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-    <input
-      type="text"
-      placeholder="Buscar por nome ou código..."
-      value={filters.search}
-      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-      className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
-    />
-    
-    {/* 🆕 FILTRO DE TIPO COM LIMPEZA AUTOMÁTICA */}
-    <select
-      value={filters.tipo}
-      onChange={(e) => handleTipoChange(e.target.value)}
-      className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
-    >
-      <option value="">Todos os Tipos</option>
-      <option value="CERTIFICACAO">Certificações</option>
-      <option value="CURSO">Cursos</option>
-      <option value="FORMACAO">Formações</option>
-    </select>
-    
-    {/* 🆕 VENDORS DINÂMICOS */}
-    <select
-      value={filters.vendor}
-      onChange={(e) => setFilters(prev => ({ ...prev, vendor: e.target.value }))}
-      className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
-      disabled={vendors.length === 0}
-    >
-      <option value="">
-        {filters.tipo === 'CERTIFICACAO' ? 'Todos os Vendors' : 
-         filters.tipo === 'CURSO' ? 'Todas as Plataformas' :
-         filters.tipo === 'FORMACAO' ? 'Todas as Instituições' :
-         'Todos os Vendors/Plataformas'}
-      </option>
-      {vendors.map(vendor => (
-        <option key={vendor} value={vendor}>{vendor}</option>
-      ))}
-    </select>
+        {/* Filtros com vendors e areas dinâmicos */}
+        <div className="bg-white rounded-lg shadow-sm border p-3 sm:p-4 mb-4 sm:mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+            <input
+              type="text"
+              placeholder="Buscar por nome ou código..."
+              value={filters.search}
+              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
+            />
+            
+            {/* Filtro de tipo com limpeza automática */}
+            <select
+              value={filters.tipo}
+              onChange={(e) => handleTipoChange(e.target.value)}
+              className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
+            >
+              <option value="">Todos os Tipos</option>
+              <option value="CERTIFICACAO">Certificações</option>
+              <option value="CURSO">Cursos</option>
+              <option value="FORMACAO">Formações</option>
+            </select>
+            
+            {/* Vendors dinâmicos */}
+            <select
+              value={filters.vendor}
+              onChange={(e) => setFilters(prev => ({ ...prev, vendor: e.target.value }))}
+              className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
+              disabled={vendors.length === 0}
+            >
+              <option value="">
+                {filters.tipo === 'CERTIFICACAO' ? 'Todos os Vendors' : 
+                 filters.tipo === 'CURSO' ? 'Todas as Plataformas' :
+                 filters.tipo === 'FORMACAO' ? 'Todas as Instituições' :
+                 'Todos os Vendors/Plataformas'}
+              </option>
+              {vendors.map(vendor => (
+                <option key={vendor} value={vendor}>{vendor}</option>
+              ))}
+            </select>
 
-    {/* 🆕 AREAS DINÂMICAS */}
-    <select
-      value={filters.area}
-      onChange={(e) => setFilters(prev => ({ ...prev, area: e.target.value }))}
-      className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
-      disabled={areas.length === 0}
-    >
-      <option value="">Todas as Áreas</option>
-      {areas.map(area => (
-        <option key={area} value={area}>{area}</option>
-      ))}
-    </select>
-  </div>
-  
-  {/* 🆕 CONTADOR DE RESULTADOS */}
-  <div className="mt-3 text-xs text-ol-gray-500">
-    {filteredCertifications.length === certifications.length 
-      ? `${certifications.length} itens no total`
-      : `${filteredCertifications.length} de ${certifications.length} itens`
-    }
-    {filters.tipo && (
-      <span className="ml-2 px-2 py-1 bg-ol-brand-100 text-ol-brand-700 rounded text-xs">
-        Tipo: {filters.tipo === 'CERTIFICACAO' ? 'Certificações' : filters.tipo === 'CURSO' ? 'Cursos' : 'Formações'}
-      </span>
-    )}
-  </div>
-</div>
-        {/* Grid de Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6">
+            {/* Areas dinâmicas */}
+            <select
+              value={filters.area}
+              onChange={(e) => setFilters(prev => ({ ...prev, area: e.target.value }))}
+              className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm sm:text-base"
+              disabled={areas.length === 0}
+            >
+              <option value="">Todas as Áreas</option>
+              {areas.map(area => (
+                <option key={area} value={area}>{area}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Contador de resultados */}
+          <div className="mt-3 text-xs text-ol-gray-500">
+            {filteredCertifications.length === certifications.length 
+              ? `${certifications.length} itens no total`
+              : `${filteredCertifications.length} de ${certifications.length} itens`
+            }
+            {filters.tipo && (
+              <span className="ml-2 px-2 py-1 bg-ol-brand-100 text-ol-brand-700 rounded text-xs">
+                Tipo: {filters.tipo === 'CERTIFICACAO' ? 'Certificações' : filters.tipo === 'CURSO' ? 'Cursos' : 'Formações'}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Grid de Cards RESPONSIVO */}
+        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
           {filteredCertifications.map((cert) => {
             const certStats = getCertificationStats(cert.id);
             
             return (
-              <div key={cert.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow flex flex-col h-full">
+              <div key={cert.id} className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow flex flex-col h-full overflow-hidden">
                 {/* SEÇÃO 1: Info */}
                 <div className="p-4 sm:p-6 pb-3 sm:pb-4 flex-1">
                   <div className="flex items-start justify-between mb-3 sm:mb-4">
@@ -753,12 +754,10 @@ const handleTipoChange = (novoTipo) => {
                           </svg>
                         </a>
                       )}
-                      {/* 🆕 BOTÃO EDITAR SEM BACKGROUND FORÇADO */}
                       <button 
                         onClick={() => handleEditCertification(cert)}
                         title="Clique aqui para editar os dados"
-                        className="text-ol-brand-600 hover:text-ol-brand-700 transition-colors p-1 !bg-transparent hover:!bg-transparent"
-                        style={{ backgroundColor: 'transparent !important', background: 'none !important' }}
+                        className="text-ol-brand-600 hover:text-ol-brand-700 transition-colors p-1"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -770,7 +769,7 @@ const handleTipoChange = (novoTipo) => {
 
                 <div className="border-t border-ol-gray-100"></div>
 
-                {/* SEÇÃO 2: Status COM CORES UNIFORMES POR TIPO + FUNDO CINZA */}
+                {/* SEÇÃO 2: Status com cores uniformes por tipo + fundo cinza */}
                 <div className="px-4 sm:px-6 py-3 sm:py-4 space-y-2 flex-shrink-0">
                   {certStats.obtidas > 0 && (
                     <div className="flex items-center justify-between">
@@ -832,7 +831,7 @@ const handleTipoChange = (novoTipo) => {
           })}
         </div>
 
-        {/* 🆕 MODAL DE ADICIONAR CORRIGIDO */}
+        {/* Modal de adicionar */}
         {showAddModal && (
           <div className="fixed inset-0 z-50 overflow-y-auto">
             <div className="flex min-h-full items-center justify-center p-4">
@@ -1200,3 +1199,5 @@ const handleTipoChange = (novoTipo) => {
 };
 
 export default CertificationsPage;
+
+

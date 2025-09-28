@@ -1,34 +1,42 @@
-# 🎯 Gestão 360 OL - Sistema Completo de Gestão
+# Gestão 360 - OL Tecnologia
 
-Sistema integrado para gerenciamento completo de certificações, cursos, formações e desenvolvimento profissional.
+Sistema completo de gestão de colaboradores, conhecimentos e relacionamento empresarial.
 
-## ✨ Funcionalidades
+## 🚀 Funcionalidades
 
-### 🎓 **Módulo Certificações & Desenvolvimento**
-- ✅ **CRUD Completo** - Certificações, cursos e formações
-- ✅ **Filtros Dinâmicos** - Por tipo, vendor/plataforma/instituição, área
-- ✅ **Estatísticas em Tempo Real** - Dashboard com métricas detalhadas
-- ✅ **Gestão de Colaboradores** - Vincular analistas aos conhecimentos
-- ✅ **Controle de Validade** - Alertas de expiração e renovação
-- ✅ **Interface Moderna** - Design responsivo com cores corporativas OL
+### 👥 Gestão de Colaboradores
+- Cadastro completo de colaboradores
+- Gestão de PDI (Plano de Desenvolvimento Individual)
+- Controle de reuniões 1x1
+- Gerenciamento de férias e day-off
+- Upload de documentos e fotos
 
-### 📊 **Dashboard & Analytics**
-- 📈 Certificações obtidas, obrigatórias, desejadas
-- ⚠️ Alertas de certificações expirando em 30 dias
-- 🎯 Tracking de metas de desenvolvimento por colaborador
-- 📋 Relatórios detalhados por equipe e área
+### 🎓 Gestão de Conhecimentos
+- Catálogo de certificações, cursos e formações
+- Controle de validade de certificações
+- Vínculos entre colaboradores e conhecimentos
+- Estatísticas e relatórios inteligentes
+- Filtros avançados por vendor, área e tipo
 
-## 🎨 **Design System**
-- **Paleta OL** - Cores corporativas padronizadas
-- **Componentes Reutilizáveis** - Modais, cards, formulários
-- **UX/UI Consistente** - Interface limpa e intuitiva
+### 📊 Dashboard e Relatórios
+- Dashboard com métricas em tempo real
+- Cards interativos com drill-down
+- Alertas de vencimento e prazos
+- Estatísticas de equipe e conhecimentos
 
-## 🚀 **Tecnologias**
+## 🛠️ Tecnologias
 
-- **React 18** + **Vite** - Frontend moderno
-- **Tailwind CSS** - Framework de estilização
-- **React Hooks** - Gerenciamento de estado
-- **Componentes Modulares** - Arquitetura escalável
+### Frontend
+- **React 18** + Vite
+- **Tailwind CSS** para styling
+- **React Hooks** para gerenciamento de estado
+- Design responsivo e moderno
 
-## 📦 **Instalação**
+### Backend
+- **FastAPI** (Python)
+- **SQLite** como banco de dados (integrado no projeto)
+- **SQLAlchemy** ORM
+- **JWT** para autenticação
+
+## 📁 Estrutura do Projeto
 
