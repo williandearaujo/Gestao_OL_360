@@ -1,537 +1,379 @@
 import React, { useState, useEffect } from 'react';
+import { Link, Users, BookOpen, TrendingUp, Plus, Filter, RotateCcw, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { employeeKnowledgeService } from '../../services/employeeKnowledgeService';
-import { knowledgeService } from '../../services/knowledgeService';
+import EmployeeKnowledgeModal from './EmployeeKnowledgeModal';
 
-const EmployeeKnowledgeModal = ({
-  isOpen,
-  onClose,
-  onSave,
-  linkItem = null, // Para editar vínculos existentes
-  preSelectedEmployee = null,
-  preSelectedKnowledge = null
-}) => {
-  // Estados do formulário
-  const [formData, setFormData] = useState({
+// ✅ IMPORT DO DESIGN SYSTEM CENTRALIZADO
+import {
+  PageContainer,
+  PageHeader,
+  PageSection,
+  StatCard,
+  Button,
+  Loading,
+  EmptyState,
+  StatusBadge
+} from '../ui';
+
+// PriorityBadge component inline (specific to Employee-Knowledge)
+const PriorityBadge = ({ priority }) => {
+  if (priority !== 'ALTA') return null;
+
+  return (
+    <span className="inline-flex items-center font-medium rounded-full px-2.5 py-0.5 text-xs bg-red-100 text-red-800">
+      🔥 ALTA
+    </span>
+  );
+};
+
+const EmployeeKnowledgePage = ({ onBackToDashboard }) => {
+  const [links, setLinks] = useState([]);
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [filters, setFilters] = useState({
     employee_id: '',
-    learning_item_id: '',
-    status: 'DESEJADO',
-    prioridade: 'MEDIA',
-    data_alvo: '',
-    data_obtencao: '',
-    data_expiracao: '',
-    observacoes: '',
-    anexo_path: ''
+    knowledge_id: '',
+    status: ''
   });
 
-  // Estados para dropdowns
-  const [employees, setEmployees] = useState([]);
-  const [knowledge, setKnowledge] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [errors, setErrors] = useState({});
+  // Estados do modal
+  const [showModal, setShowModal] = useState(false);
+  const [editingLink, setEditingLink] = useState(null);
 
-  // Carregar dados quando modal abre
   useEffect(() => {
-    if (isOpen) {
-      loadDropdownData();
+    loadData();
+  }, []);
 
-      // Se está editando um vínculo existente
-      if (linkItem) {
-        setFormData({
-          employee_id: linkItem.employee_id || '',
-          learning_item_id: linkItem.knowledge_id || linkItem.learning_item_id || '',
-          status: linkItem.status || 'DESEJADO',
-          prioridade: linkItem.prioridade || 'MEDIA',
-          data_alvo: formatDateForInput(linkItem.data_alvo),
-          data_obtencao: formatDateForInput(linkItem.data_obtencao),
-          data_expiracao: formatDateForInput(linkItem.data_expiracao),
-          observacoes: linkItem.observacoes || '',
-          anexo_path: linkItem.anexo_path || ''
-        });
-      } else {
-        // Novo vínculo
-        setFormData({
-          employee_id: preSelectedEmployee || '',
-          learning_item_id: preSelectedKnowledge || '',
-          status: 'DESEJADO',
-          prioridade: 'MEDIA',
-          data_alvo: '',
-          data_obtencao: '',
-          data_expiracao: '',
-          observacoes: '',
-          anexo_path: ''
-        });
-      }
-    }
-  }, [isOpen, linkItem, preSelectedEmployee, preSelectedKnowledge]);
-
-  const loadDropdownData = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      console.log('📊 Carregando dados para dropdowns...');
+      setError(null);
 
-      const [employeesData, knowledgeData] = await Promise.all([
-        fetch('http://localhost:8000/employees').then(r => r.json()),
-        knowledgeService.getAll()
+      // Carregar vínculos e stats em paralelo
+      const [linksData, statsData] = await Promise.all([
+        employeeKnowledgeService.getAll(filters),
+        employeeKnowledgeService.getStats()
       ]);
 
-      console.log('✅ Colaboradores carregados:', employeesData.length);
-      console.log('✅ Conhecimentos carregados:', knowledgeData.length);
-
-      setEmployees(employeesData || []);
-      setKnowledge(knowledgeData || []);
-    } catch (error) {
-      console.error('❌ Erro ao carregar dados:', error);
+      setLinks(linksData);
+      setStats(statsData);
+    } catch (err) {
+      console.error('❌ Erro ao carregar dados:', err);
+      setError('Erro ao carregar dados da API');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDateForInput = (dateString) => {
+  const handleFilterChange = (field, value) => {
+    const newFilters = { ...filters, [field]: value };
+    setFilters(newFilters);
+    loadData();
+  };
+
+  const clearFilters = () => {
+    setFilters({ employee_id: '', knowledge_id: '', status: '' });
+    loadData();
+  };
+
+  // ✅ FUNÇÃO PARA FILTRAR POR STATUS (STATCARDS CLICÁVEIS)
+  const handleFilterByStatus = (status) => {
+    setFilters({ ...filters, status });
+    loadData();
+  };
+
+  // Funções do modal
+  const handleAddLink = () => {
+    setEditingLink(null);
+    setShowModal(true);
+  };
+
+  const handleEditLink = (link) => {
+    setEditingLink(link);
+    setShowModal(true);
+  };
+
+  const handleDeleteLink = async (id) => {
+    if (window.confirm('Tem certeza que deseja remover este vínculo?')) {
+      try {
+        await employeeKnowledgeService.delete(id);
+        await loadData();
+      } catch (error) {
+        console.error('❌ Erro ao deletar vínculo:', error);
+        alert('Erro ao deletar vínculo');
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingLink(null);
+  };
+
+  const formatDate = (dateString) => {
     if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toISOString().split('T')[0];
-    } catch {
-      return '';
-    }
+    return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
-  const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-
-    // Limpar erro do campo alterado
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: null
-      }));
-    }
-
-    // Lógica especial para mudança de status
-    if (field === 'status') {
-      handleStatusChange(value);
-    }
-  };
-
-  const handleStatusChange = (newStatus) => {
-    console.log('🔄 Status alterado para:', newStatus);
-
-    // Limpar datas ao mudar status
-    setFormData(prev => ({
-      ...prev,
-      status: newStatus,
-      data_alvo: newStatus === 'OBTIDO' ? '' : prev.data_alvo,
-      data_obtencao: newStatus !== 'OBTIDO' ? '' : prev.data_obtencao,
-      data_expiracao: newStatus !== 'OBTIDO' ? '' : prev.data_expiracao,
-      anexo_path: newStatus !== 'OBTIDO' ? '' : prev.anexo_path
-    }));
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.employee_id) {
-      newErrors.employee_id = 'Colaborador é obrigatório';
-    }
-    if (!formData.learning_item_id) {
-      newErrors.learning_item_id = 'Conhecimento é obrigatório';
-    }
-    if (!formData.status) {
-      newErrors.status = 'Status é obrigatório';
-    }
-
-    // Validações específicas por status
-    if (formData.status === 'DESEJADO' || formData.status === 'OBRIGATORIO') {
-      if (!formData.data_alvo) {
-        newErrors.data_alvo = 'Data alvo é obrigatória para este status';
-      }
-    }
-
-    if (formData.status === 'OBTIDO') {
-      if (!formData.data_obtencao) {
-        newErrors.data_obtencao = 'Data de obtenção é obrigatória para status "Obtido"';
-      }
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!validateForm()) {
-      console.log('❌ Formulário inválido:', errors);
-      return;
-    }
-
-    try {
-      setSaving(true);
-      console.log('💾 Salvando vínculo:', formData);
-
-      const dataToSave = {
-        ...formData,
-        // Garantir que learning_item_id seja usado no backend
-        learning_item_id: formData.learning_item_id
-      };
-
-      if (linkItem) {
-        // Editando vínculo existente
-        await employeeKnowledgeService.update(linkItem.id, dataToSave);
-        console.log('✅ Vínculo atualizado!');
-      } else {
-        // Criando novo vínculo
-        await employeeKnowledgeService.create(dataToSave);
-        console.log('✅ Vínculo criado!');
-      }
-
-      // Recarregar dados da página principal
-      onSave();
-      onClose();
-
-      // Resetar formulário
-      setFormData({
-        employee_id: '',
-        learning_item_id: '',
-        status: 'DESEJADO',
-        prioridade: 'MEDIA',
-        data_alvo: '',
-        data_obtencao: '',
-        data_expiracao: '',
-        observacoes: '',
-        anexo_path: ''
-      });
-
-    } catch (error) {
-      console.error('❌ Erro ao salvar vínculo:', error);
-
-      // Tratar erro de duplicata
-      if (error.message && error.message.includes('já existe')) {
-        setErrors({ general: 'Este colaborador já possui vínculo com este conhecimento' });
-      } else {
-        setErrors({ general: 'Erro ao salvar vínculo. Tente novamente.' });
-      }
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleFileUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Simular upload (em produção seria para S3/servidor)
-      const fileName = `cert_${formData.employee_id}_${formData.learning_item_id}_${Date.now()}.pdf`;
-      console.log('📎 Arquivo selecionado:', file.name);
-      handleChange('anexo_path', fileName);
-    }
-  };
-
-  const getSelectedKnowledge = () => {
-    return knowledge.find(k => k.id == formData.learning_item_id);
-  };
-
-  // Auto-calcular data de expiração baseada na validade
-  useEffect(() => {
-    if (formData.status === 'OBTIDO' && formData.data_obtencao && formData.learning_item_id) {
-      const selectedKnowledge = getSelectedKnowledge();
-      if (selectedKnowledge && selectedKnowledge.validade_meses) {
-        const obtentionDate = new Date(formData.data_obtencao);
-        obtentionDate.setMonth(obtentionDate.getMonth() + selectedKnowledge.validade_meses);
-        const expirationDate = obtentionDate.toISOString().split('T')[0];
-
-        setFormData(prev => ({
-          ...prev,
-          data_expiracao: expirationDate
-        }));
-
-        console.log('📅 Data de expiração calculada:', expirationDate);
-      }
-    }
-  }, [formData.data_obtencao, formData.learning_item_id, formData.status, knowledge]);
-
-  if (!isOpen) return null;
+  if (loading) {
+    return <Loading fullScreen />;
+  }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-ol-brand-500">
-              {linkItem ? '✏️ Editar Vínculo' : '🔗 Novo Vínculo'} Colaborador ↔ Conhecimento
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-ol-gray-400 hover:text-ol-gray-600"
-              disabled={saving}
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+    <PageContainer>
+      {/* Back Button */}
+      {onBackToDashboard && (
+        <div className="flex items-center mb-4">
+          <button
+            onClick={onBackToDashboard}
+            className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Header */}
+      <PageHeader
+        title="Vínculos Colaborador ↔ Conhecimento"
+        subtitle="Gerencie certificações, cursos e formações dos colaboradores"
+      />
+
+      {/* Error Alert */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-400 mr-2" />
+            <span className="text-red-700">{error}</span>
+            <Button onClick={loadData} variant="ghost" size="sm" className="ml-4">
+              Tentar novamente
+            </Button>
           </div>
+        </div>
+      )}
 
-          {/* Loading */}
-          {loading && (
-            <div className="text-center py-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ol-brand-600 mx-auto mb-2"></div>
-              <p className="text-sm text-gray-600">Carregando dados...</p>
-            </div>
-          )}
+      {/* ✅ ESTATÍSTICAS COMO STATCARDS ELEGANTES */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="Total de Vínculos"
+            value={stats.total}
+            subtitle="Conexões ativas"
+            icon={Link}
+            color="gray"
+          />
 
-          {/* Erro geral */}
-          {errors.general && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-              <p className="text-sm text-red-700">{errors.general}</p>
-            </div>
-          )}
+          <StatCard
+            title="Obtidos"
+            value={stats.por_status?.obtidos || 0}
+            subtitle="Certificações conquistadas"
+            icon={BookOpen}
+            color="green"
+            onClick={() => handleFilterByStatus('OBTIDO')}
+            clickable={true}
+          />
 
-          {/* Formulário */}
-          {!loading && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Colaborador */}
-                <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Colaborador *
-                  </label>
-                  <select
-                    required
-                    value={formData.employee_id}
-                    onChange={(e) => handleChange('employee_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 ${
-                      errors.employee_id ? 'border-red-300' : 'border-ol-gray-300'
-                    }`}
-                    disabled={saving}
-                  >
-                    <option value="">Selecione um colaborador</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.nome} - {emp.cargo}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.employee_id && <p className="text-red-500 text-xs mt-1">{errors.employee_id}</p>}
-                </div>
+          <StatCard
+            title="Obrigatórios"
+            value={stats.por_status?.obrigatorios || 0}
+            subtitle="Requisitos mandatórios"
+            icon={AlertCircle}
+            color="red"
+            onClick={() => handleFilterByStatus('OBRIGATORIO')}
+            clickable={true}
+          />
 
-                {/* Conhecimento */}
-                <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Conhecimento *
-                  </label>
-                  <select
-                    required
-                    value={formData.learning_item_id}
-                    onChange={(e) => handleChange('learning_item_id', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 ${
-                      errors.learning_item_id ? 'border-red-300' : 'border-ol-gray-300'
-                    }`}
-                    disabled={saving}
-                  >
-                    <option value="">Selecione um conhecimento</option>
-                    {knowledge.map(know => (
-                      <option key={know.id} value={know.id}>
-                        {know.nome} ({know.tipo}) - {know.vendor || know.area}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.learning_item_id && <p className="text-red-500 text-xs mt-1">{errors.learning_item_id}</p>}
-                </div>
+          <StatCard
+            title="Desejados"
+            value={stats.por_status?.desejados || 0}
+            subtitle="Em processo de obtenção"
+            icon={TrendingUp}
+            color="blue"
+            onClick={() => handleFilterByStatus('DESEJADO')}
+            clickable={true}
+          />
+        </div>
+      )}
 
-                {/* Status */}
-                <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Status *
-                  </label>
-                  <select
-                    required
-                    value={formData.status}
-                    onChange={(e) => handleChange('status', e.target.value)}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    disabled={saving}
-                  >
-                    <option value="DESEJADO">💙 Desejado</option>
-                    <option value="OBRIGATORIO">🔴 Obrigatório</option>
-                    <option value="OBTIDO">✅ Obtido</option>
-                  </select>
-                </div>
-
-                {/* Prioridade */}
-                <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Prioridade
-                  </label>
-                  <select
-                    value={formData.prioridade}
-                    onChange={(e) => handleChange('prioridade', e.target.value)}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    disabled={saving}
-                  >
-                    <option value="BAIXA">🟢 Baixa</option>
-                    <option value="MEDIA">🟡 Média</option>
-                    <option value="ALTA">🔴 Alta</option>
-                  </select>
-                </div>
-
-                {/* Data Alvo (DESEJADO/OBRIGATÓRIO) */}
-                {(formData.status === 'DESEJADO' || formData.status === 'OBRIGATORIO') && (
-                  <div>
-                    <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                      Data Alvo *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.data_alvo}
-                      onChange={(e) => handleChange('data_alvo', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 ${
-                        errors.data_alvo ? 'border-red-300' : 'border-ol-gray-300'
-                      }`}
-                      disabled={saving}
-                    />
-                    {errors.data_alvo && <p className="text-red-500 text-xs mt-1">{errors.data_alvo}</p>}
-                  </div>
-                )}
-
-                {/* Data de Obtenção (OBTIDO) */}
-                {formData.status === 'OBTIDO' && (
-                  <div>
-                    <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                      Data de Obtenção *
-                    </label>
-                    <input
-                      type="date"
-                      required
-                      value={formData.data_obtencao}
-                      onChange={(e) => handleChange('data_obtencao', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 ${
-                        errors.data_obtencao ? 'border-red-300' : 'border-ol-gray-300'
-                      }`}
-                      disabled={saving}
-                    />
-                    {errors.data_obtencao && <p className="text-red-500 text-xs mt-1">{errors.data_obtencao}</p>}
-                  </div>
-                )}
-
-                {/* Data de Expiração (OBTIDO) */}
-                {formData.status === 'OBTIDO' && (
-                  <div>
-                    <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                      Data de Expiração
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.data_expiracao}
-                      onChange={(e) => handleChange('data_expiracao', e.target.value)}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                      disabled={saving}
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      {getSelectedKnowledge()?.validade_meses ?
-                        `Calculada automaticamente (${getSelectedKnowledge().validade_meses} meses)` :
-                        'Deixe vazio se não expira'
-                      }
-                    </p>
-                  </div>
-                )}
-
-                {/* Upload Certificado (OBTIDO) */}
-                {formData.status === 'OBTIDO' && (
-                  <div>
-                    <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                      Certificado
-                    </label>
-                    <input
-                      type="file"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={handleFileUpload}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                      disabled={saving}
-                    />
-                    {formData.anexo_path && (
-                      <p className="text-xs text-green-600 mt-1">
-                        ✓ Arquivo: {formData.anexo_path}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* Observações */}
-              <div>
-                <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                  Observações
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.observacoes}
-                  onChange={(e) => handleChange('observacoes', e.target.value)}
-                  className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  placeholder="Observações adicionais..."
-                  disabled={saving}
-                />
-              </div>
-
-              {/* Info Card baseado no status */}
-              <div className="p-4 rounded-lg border">
-                {formData.status === 'DESEJADO' && (
-                  <div className="bg-blue-50 border-blue-200">
-                    <p className="text-sm text-blue-700">
-                      💙 <strong>Desejado:</strong> Conhecimento de interesse do colaborador para desenvolvimento profissional.
-                    </p>
-                  </div>
-                )}
-                {formData.status === 'OBRIGATORIO' && (
-                  <div className="bg-red-50 border-red-200">
-                    <p className="text-sm text-red-700">
-                      🔴 <strong>Obrigatório:</strong> Conhecimento necessário para a função, com prazo definido.
-                    </p>
-                  </div>
-                )}
-                {formData.status === 'OBTIDO' && (
-                  <div className="bg-green-50 border-green-200">
-                    <p className="text-sm text-green-700">
-                      ✅ <strong>Obtido:</strong> Conhecimento já adquirido pelo colaborador. Anexe o certificado se disponível.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Botões */}
-              <div className="flex justify-end space-x-3 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-4 py-2 text-ol-gray-600 border border-ol-gray-300 rounded-md hover:bg-ol-gray-50"
-                  disabled={saving}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-ol-brand-600 text-white rounded-md hover:bg-ol-brand-700 disabled:opacity-50"
-                  disabled={saving}
-                >
-                  {saving ? (
-                    <div className="flex items-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      Salvando...
-                    </div>
-                  ) : (
-                    linkItem ? 'Salvar Alterações' : 'Criar Vínculo'
-                  )}
-                </button>
-              </div>
-            </form>
-          )}
+      {/* ✅ AÇÃO NOVO VÍNCULO EM CARD ELEGANTE */}
+      <div
+        className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-ol-brand-300"
+        onClick={handleAddLink}
+      >
+        <div className="flex items-center space-x-3">
+          <div className="w-12 h-12 bg-ol-brand-50 text-ol-brand-600 rounded-lg flex items-center justify-center">
+            <Plus className="w-6 h-6" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">Vincular Conhecimento</h3>
+            <p className="text-sm text-gray-500">Conectar colaboradores com certificações, cursos e formações</p>
+          </div>
         </div>
       </div>
-    </div>
+
+      {/* ✅ FILTROS EM SEÇÃO SEPARADA */}
+      <PageSection title="Filtros e Busca">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Colaborador</label>
+            <select
+              value={filters.employee_id}
+              onChange={(e) => handleFilterChange('employee_id', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ol-brand-500 focus:border-transparent"
+            >
+              <option value="">Todos os Colaboradores</option>
+              {/* Aqui você pode popular com a lista de colaboradores */}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Conhecimento</label>
+            <select
+              value={filters.knowledge_id}
+              onChange={(e) => handleFilterChange('knowledge_id', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ol-brand-500 focus:border-transparent"
+            >
+              <option value="">Todos os Conhecimentos</option>
+              {/* Aqui você pode popular com a lista de conhecimentos */}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-ol-brand-500 focus:border-transparent"
+            >
+              <option value="">Todos os Status</option>
+              <option value="OBTIDO">Obtidos</option>
+              <option value="DESEJADO">Desejados</option>
+              <option value="OBRIGATORIO">Obrigatórios</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {links.length} vínculos encontrados
+            {filters.status && (
+              <span className="ml-2 px-2 py-1 bg-ol-brand-100 text-ol-brand-700 rounded text-xs">
+                Filtrado por: {filters.status}
+              </span>
+            )}
+          </div>
+
+          {(filters.employee_id || filters.knowledge_id || filters.status) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              icon={RotateCcw}
+            >
+              Limpar Filtros
+            </Button>
+          )}
+        </div>
+      </PageSection>
+
+      {/* ✅ VÍNCULOS EM SEÇÃO SEPARADA */}
+      <PageSection title={`Vínculos Ativos (${links.length})`}>
+        {links.length === 0 ? (
+          <EmptyState
+            icon={Link}
+            title="Nenhum vínculo encontrado"
+            description={
+              filters.employee_id || filters.knowledge_id || filters.status
+                ? 'Tente ajustar os filtros para encontrar vínculos.'
+                : 'Comece criando vínculos entre colaboradores e conhecimentos.'
+            }
+            actionLabel="Criar Primeiro Vínculo"
+            onAction={handleAddLink}
+          />
+        ) : (
+          <div className="space-y-4">
+            {links.map((link) => (
+              <div key={link.id} className="bg-gray-50 p-4 rounded-lg border hover:shadow-md transition-shadow">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <div className="w-10 h-10 bg-ol-brand-100 rounded-full flex items-center justify-center">
+                        <Users className="w-5 h-5 text-ol-brand-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-sm font-medium text-gray-900">
+                          {link.employee?.nome} ↔ {link.knowledge?.nome}
+                        </h4>
+                        <div className="flex items-center space-x-2 mt-1">
+                          <StatusBadge status={link.status} />
+                          <PriorityBadge priority={link.prioridade} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="ml-13 space-y-1">
+                      <div className="flex items-center space-x-4 text-sm text-gray-600">
+                        <span className="flex items-center">
+                          <Users className="w-4 h-4 mr-1" />
+                          {link.employee?.cargo}
+                        </span>
+                        <span className="flex items-center">
+                          <BookOpen className="w-4 h-4 mr-1" />
+                          {link.knowledge?.tipo}
+                        </span>
+                      </div>
+
+                      {(link.data_alvo || link.data_obtencao) && (
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          {link.data_alvo && (
+                            <span>🎯 Meta: {formatDate(link.data_alvo)}</span>
+                          )}
+                          {link.data_obtencao && (
+                            <span>✅ Obtido: {formatDate(link.data_obtencao)}</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEditLink(link)}
+                      icon={Edit}
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteLink(link.id)}
+                      icon={Trash2}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      Excluir
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </PageSection>
+
+      {/* Modal */}
+      <EmployeeKnowledgeModal
+        isOpen={showModal || !!editingLink}
+        onClose={handleCloseModal}
+        onSave={loadData}
+        linkItem={editingLink}
+      />
+    </PageContainer>
   );
 };
 
-export default EmployeeKnowledgeModal;
+export default EmployeeKnowledgePage;
