@@ -19,15 +19,28 @@ https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app
 
 >app>models
 https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/models/__init__.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/models/employee.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/models/employee_knowledge.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/models/knowledge.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/models/user.py
 
 >app>routers
 https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/routers/__init__.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/routers/auth.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/routers/employees.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/routers/knowledge.py
 
 >app>schemas
 https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/schemas/__init__.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/schemas/auth.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/schemas/employee.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/schemas/knowledge.py
 
 >app>utils
 https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/utils/__init__.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/utils/auth.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/utils/employee_utils.py
+https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/backend/app/utils/knowledge_utils.py
 
 #frontend
 
@@ -129,3 +142,8 @@ https://github.com/williandearaujo/Gestao_OL_360/raw/refs/heads/main/frontend/sr
 
 
 Tudo esta dentro do projeto escrito com Sensitive case, veja se consegue ler
+
+
+Meu user github:  williandearaujo
+Meu email Github: williandearaujo@hotmail.com
+Meu repositorio desse projeto:  https://github.com/williandearaujo/Gestao_OL_360

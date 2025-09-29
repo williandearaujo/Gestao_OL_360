@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabButton from '../components/TabButton';
+import { teamsService } from '../../../services/teamsService';
+import { managersService } from '../../../services/managersService';
 
 const AddEmployeeModal = ({
   isOpen,
@@ -8,9 +10,39 @@ const AddEmployeeModal = ({
   setNewEmployee,
   onAddEmployee,
   onPhotoUpload,
-  employees  // ✅ PROP ADICIONADA
+  employees,
+  useAPI = false  // ✅ ADICIONAR ESTA PROP
 }) => {
   const [activeTab, setActiveTab] = useState('dados');
+
+  // ✅ ESTADOS PARA DROPDOWNS DINÂMICOS
+  const [teams, setTeams] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // ✅ CARREGAR DADOS QUANDO MODAL ABRE
+  useEffect(() => {
+    if (isOpen && useAPI) {
+      loadTeamsAndManagers();
+    }
+  }, [isOpen, useAPI]);
+
+  // ✅ FUNÇÃO PARA CARREGAR DADOS DA API
+  const loadTeamsAndManagers = async () => {
+    setLoading(true);
+    try {
+      const [teamsData, managersData] = await Promise.all([
+        teamsService.getAll(),
+        managersService.getAll()
+      ]);
+      setTeams(teamsData);
+      setManagers(managersData);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -30,6 +62,19 @@ const AddEmployeeModal = ({
             </button>
           </div>
 
+          {/* ✅ INDICADOR DE MODO */}
+          {useAPI && (
+            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-green-700 font-medium">
+                  Modo API - Dropdowns com dados reais
+                  {loading && " (Carregando...)"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Abas */}
           <div className="flex space-x-2 mb-6 border-b">
             <TabButton id="dados" label="Dados Básicos" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -38,7 +83,7 @@ const AddEmployeeModal = ({
           </div>
 
           <form onSubmit={onAddEmployee} className="space-y-6">
-            {/* ABA DADOS BÁSICOS */}
+            {/* ABA DADOS BÁSICOS - MANTIDA IGUAL */}
             {activeTab === 'dados' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Upload de foto */}
@@ -154,7 +199,7 @@ const AddEmployeeModal = ({
               </div>
             )}
 
-            {/* ABA ENDEREÇO */}
+            {/* ABA ENDEREÇO - MANTIDA IGUAL */}
             {activeTab === 'endereco' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
@@ -163,8 +208,8 @@ const AddEmployeeModal = ({
                     type="text"
                     required
                     value={newEmployee.endereco.rua}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, rua: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -178,8 +223,8 @@ const AddEmployeeModal = ({
                     type="text"
                     required
                     value={newEmployee.endereco.numero}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, numero: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -192,8 +237,8 @@ const AddEmployeeModal = ({
                   <input
                     type="text"
                     value={newEmployee.endereco.complemento}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, complemento: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -207,8 +252,8 @@ const AddEmployeeModal = ({
                     type="text"
                     required
                     value={newEmployee.endereco.bairro}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, bairro: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -222,8 +267,8 @@ const AddEmployeeModal = ({
                     type="text"
                     required
                     value={newEmployee.endereco.cidade}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, cidade: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -236,8 +281,8 @@ const AddEmployeeModal = ({
                   <select
                     required
                     value={newEmployee.endereco.estado}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, estado: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -258,8 +303,8 @@ const AddEmployeeModal = ({
                     type="text"
                     required
                     value={newEmployee.endereco.cep}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, cep: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -269,7 +314,7 @@ const AddEmployeeModal = ({
               </div>
             )}
 
-            {/* ABA PROFISSIONAL - ✅ COMPLETA E CORRIGIDA */}
+            {/* ✅ ABA PROFISSIONAL - MODIFICADA APENAS OS DROPDOWNS */}
             {activeTab === 'profissional' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -284,20 +329,51 @@ const AddEmployeeModal = ({
                   />
                 </div>
 
+                {/* 🔥 DROPDOWN DINÂMICO DE EQUIPES */}
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Equipe *</label>
-                  <select
-                    required
-                    value={newEmployee.equipe}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, equipe: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  >
-                    <option value="">Selecione a equipe</option>
-                    <option value="Red Team">Red Team</option>
-                    <option value="Blue Team">Blue Team</option>
-                    <option value="SOC Team">SOC Team</option>
-                    <option value="Compliance Team">Compliance Team</option>
-                  </select>
+                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
+                    Equipe *
+                    {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
+                  </label>
+
+                  {useAPI ? (
+                    // Dropdown dinâmico
+                    <select
+                      required
+                      value={newEmployee.team_id || ''}
+                      onChange={(e) => {
+                        const selectedTeam = teams.find(t => t.id == e.target.value);
+                        setNewEmployee(prev => ({
+                          ...prev,
+                          team_id: e.target.value ? parseInt(e.target.value) : null,
+                          equipe: selectedTeam ? selectedTeam.nome : ''
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                      disabled={loading}
+                    >
+                      <option value="">Selecione uma equipe</option>
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>
+                          {team.nome}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    // Dropdown estático original
+                    <select
+                      required
+                      value={newEmployee.equipe}
+                      onChange={(e) => setNewEmployee(prev => ({ ...prev, equipe: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    >
+                      <option value="">Selecione a equipe</option>
+                      <option value="Red Team">Red Team</option>
+                      <option value="Blue Team">Blue Team</option>
+                      <option value="SOC Team">SOC Team</option>
+                      <option value="Compliance Team">Compliance Team</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -318,35 +394,58 @@ const AddEmployeeModal = ({
                   </select>
                 </div>
 
-                {/* ✅ Gerente Responsável */}
+                {/* 🔥 DROPDOWN DINÂMICO DE GERENTES */}
                 <div>
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">
                     Gerente Responsável
+                    {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
                   </label>
-                  <select
-                    value={newEmployee.manager_id || ''}
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
-                      manager_id: e.target.value ? parseInt(e.target.value) : null 
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  >
-                    <option value="">Nenhum gerente</option>
-                    {employees && employees
-                      .filter(emp => ['GERENTE', 'DIRETOR', 'COORDENADOR'].includes(emp.nivel))
-                      .map(manager => (
+
+                  {useAPI ? (
+                    // Dropdown dinâmico
+                    <select
+                      value={newEmployee.manager_id || ''}
+                      onChange={(e) => setNewEmployee(prev => ({
+                        ...prev,
+                        manager_id: e.target.value ? parseInt(e.target.value) : null
+                      }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                      disabled={loading}
+                    >
+                      <option value="">Selecione um gerente</option>
+                      {managers.map(manager => (
                         <option key={manager.id} value={manager.id}>
                           {manager.nome} ({manager.cargo})
                         </option>
-                      ))
-                    }
-                  </select>
+                      ))}
+                    </select>
+                  ) : (
+                    // Dropdown estático original
+                    <select
+                      value={newEmployee.manager_id || ''}
+                      onChange={(e) => setNewEmployee(prev => ({
+                        ...prev,
+                        manager_id: e.target.value ? parseInt(e.target.value) : null
+                      }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    >
+                      <option value="">Nenhum gerente</option>
+                      {employees && employees
+                        .filter(emp => ['GERENTE', 'DIRETOR', 'COORDENADOR'].includes(emp.nivel))
+                        .map(manager => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.nome} ({manager.cargo})
+                          </option>
+                        ))
+                      }
+                    </select>
+                  )}
                   <p className="text-xs text-gray-500 mt-1">
                     Selecione o gerente direto deste colaborador
                   </p>
                 </div>
 
-                {/* ✅ Tipo de Acesso */}
+                {/* Resto dos campos mantidos iguais */}
                 <div>
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">
                     Tipo de Acesso
@@ -408,9 +507,9 @@ const AddEmployeeModal = ({
                   <input
                     type="text"
                     placeholder="Digite competências separadas por vírgula"
-                    onChange={(e) => setNewEmployee(prev => ({ 
-                      ...prev, 
-                      competencias: e.target.value.split(',').map(c => c.trim()).filter(c => c) 
+                    onChange={(e) => setNewEmployee(prev => ({
+                      ...prev,
+                      competencias: e.target.value.split(',').map(c => c.trim()).filter(c => c)
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
                   />
@@ -419,7 +518,7 @@ const AddEmployeeModal = ({
               </div>
             )}
 
-            {/* Botões de ação */}
+            {/* Botões de ação - MANTIDOS IGUAIS */}
             <div className="flex justify-between pt-6 border-t">
               <button
                 type="button"

@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import TabButton from '../components/TabButton';
+import { teamsService } from '../../../services/teamsService';
+import { managersService } from '../../../services/managersService';
 
 const EditEmployeeModal = ({
   isOpen,
@@ -8,9 +10,46 @@ const EditEmployeeModal = ({
   setEditingEmployee,
   onEditEmployee,
   onPhotoUpload,
-  employees  // 🆕 Para popular select de gerentes
+  employees,
+  useAPI = false
 }) => {
   const [activeTab, setActiveTab] = useState('dados');
+
+  // ✅ ESTADOS PARA DROPDOWNS DINÂMICOS
+  const [teams, setTeams] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // ✅ CARREGAR DADOS QUANDO MODAL ABRE
+  useEffect(() => {
+    if (isOpen && useAPI) {
+      loadTeamsAndManagers();
+    }
+  }, [isOpen, useAPI]);
+
+  // ✅ RESETAR ABA QUANDO MODAL ABRE
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab('dados');
+    }
+  }, [isOpen]);
+
+  // ✅ FUNÇÃO PARA CARREGAR DADOS DA API
+  const loadTeamsAndManagers = async () => {
+    setLoading(true);
+    try {
+      const [teamsData, managersData] = await Promise.all([
+        teamsService.getAll(),
+        managersService.getAll()
+      ]);
+      setTeams(teamsData);
+      setManagers(managersData);
+    } catch (error) {
+      console.error('Erro ao carregar dados:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!isOpen || !editingEmployee) return null;
 
@@ -20,7 +59,7 @@ const EditEmployeeModal = ({
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-ol-brand-500">
-              Editar Colaborador - {editingEmployee.nome}
+              Editar Colaborador: {editingEmployee.nome}
             </h3>
             <button
               onClick={onClose}
@@ -31,6 +70,19 @@ const EditEmployeeModal = ({
               </svg>
             </button>
           </div>
+
+          {/* ✅ INDICADOR DE MODO */}
+          {useAPI && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+                <span className="text-sm text-blue-700 font-medium">
+                  Modo API - Editando via servidor
+                  {loading && " (Carregando dropdowns...)"}
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* Abas */}
           <div className="flex space-x-2 mb-6 border-b">
@@ -97,7 +149,7 @@ const EditEmployeeModal = ({
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">Telefone</label>
                   <input
                     type="tel"
-                    value={editingEmployee.telefone}
+                    value={editingEmployee.telefone || ''}
                     onChange={(e) => setEditingEmployee(prev => ({ ...prev, telefone: e.target.value }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
                     placeholder="(11) 99999-9999"
@@ -119,7 +171,7 @@ const EditEmployeeModal = ({
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">RG</label>
                   <input
                     type="text"
-                    value={editingEmployee.rg}
+                    value={editingEmployee.rg || ''}
                     onChange={(e) => setEditingEmployee(prev => ({ ...prev, rg: e.target.value }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
                   />
@@ -161,8 +213,8 @@ const EditEmployeeModal = ({
                     type="text"
                     required
                     value={editingEmployee.endereco?.rua || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, rua: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -175,8 +227,8 @@ const EditEmployeeModal = ({
                     type="text"
                     required
                     value={editingEmployee.endereco?.numero || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, numero: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -188,8 +240,8 @@ const EditEmployeeModal = ({
                   <input
                     type="text"
                     value={editingEmployee.endereco?.complemento || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, complemento: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -202,8 +254,8 @@ const EditEmployeeModal = ({
                     type="text"
                     required
                     value={editingEmployee.endereco?.bairro || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, bairro: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -216,8 +268,8 @@ const EditEmployeeModal = ({
                     type="text"
                     required
                     value={editingEmployee.endereco?.cidade || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, cidade: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -229,8 +281,8 @@ const EditEmployeeModal = ({
                   <select
                     required
                     value={editingEmployee.endereco?.estado || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, estado: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -251,8 +303,8 @@ const EditEmployeeModal = ({
                     type="text"
                     required
                     value={editingEmployee.endereco?.cep || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
                       endereco: { ...prev.endereco, cep: e.target.value }
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
@@ -261,7 +313,7 @@ const EditEmployeeModal = ({
               </div>
             )}
 
-            {/* ABA PROFISSIONAL */}
+            {/* ✅ ABA PROFISSIONAL COM DROPDOWNS DINÂMICOS */}
             {activeTab === 'profissional' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -275,20 +327,49 @@ const EditEmployeeModal = ({
                   />
                 </div>
 
+                {/* 🔥 DROPDOWN DINÂMICO DE EQUIPES */}
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Equipe *</label>
-                  <select
-                    required
-                    value={editingEmployee.equipe}
-                    onChange={(e) => setEditingEmployee(prev => ({ ...prev, equipe: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  >
-                    <option value="">Selecione a equipe</option>
-                    <option value="Red Team">Red Team</option>
-                    <option value="Blue Team">Blue Team</option>
-                    <option value="SOC Team">SOC Team</option>
-                    <option value="Compliance Team">Compliance Team</option>
-                  </select>
+                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
+                    Equipe *
+                    {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
+                  </label>
+
+                  {useAPI ? (
+                    <select
+                      required
+                      value={editingEmployee.team_id || ''}
+                      onChange={(e) => {
+                        const selectedTeam = teams.find(t => t.id == e.target.value);
+                        setEditingEmployee(prev => ({
+                          ...prev,
+                          team_id: e.target.value ? parseInt(e.target.value) : null,
+                          equipe: selectedTeam ? selectedTeam.nome : ''
+                        }));
+                      }}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                      disabled={loading}
+                    >
+                      <option value="">Selecione uma equipe</option>
+                      {teams.map(team => (
+                        <option key={team.id} value={team.id}>
+                          {team.nome}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      required
+                      value={editingEmployee.equipe}
+                      onChange={(e) => setEditingEmployee(prev => ({ ...prev, equipe: e.target.value }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    >
+                      <option value="">Selecione a equipe</option>
+                      <option value="Red Team">Red Team</option>
+                      <option value="Blue Team">Blue Team</option>
+                      <option value="SOC Team">SOC Team</option>
+                      <option value="Compliance Team">Compliance Team</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
@@ -309,32 +390,52 @@ const EditEmployeeModal = ({
                   </select>
                 </div>
 
-                {/* 🆕 NOVO: Gerente Responsável */}
+                {/* 🔥 DROPDOWN DINÂMICO DE GERENTES */}
                 <div>
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">
                     Gerente Responsável
+                    {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
                   </label>
-                  <select
-                    value={editingEmployee.manager_id || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
-                      manager_id: e.target.value ? parseInt(e.target.value) : null 
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  >
-                    <option value="">Nenhum gerente</option>
-                    {employees && employees
-                      .filter(emp => ['GERENTE', 'DIRETOR', 'COORDENADOR'].includes(emp.nivel) && emp.id !== editingEmployee.id)
-                      .map(manager => (
+
+                  {useAPI ? (
+                    <select
+                      value={editingEmployee.manager_id || ''}
+                      onChange={(e) => setEditingEmployee(prev => ({
+                        ...prev,
+                        manager_id: e.target.value ? parseInt(e.target.value) : null
+                      }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                      disabled={loading}
+                    >
+                      <option value="">Selecione um gerente</option>
+                      {managers.map(manager => (
                         <option key={manager.id} value={manager.id}>
                           {manager.nome} ({manager.cargo})
                         </option>
-                      ))
-                    }
-                  </select>
+                      ))}
+                    </select>
+                  ) : (
+                    <select
+                      value={editingEmployee.manager_id || ''}
+                      onChange={(e) => setEditingEmployee(prev => ({
+                        ...prev,
+                        manager_id: e.target.value ? parseInt(e.target.value) : null
+                      }))}
+                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    >
+                      <option value="">Nenhum gerente</option>
+                      {employees && employees
+                        .filter(emp => ['GERENTE', 'DIRETOR', 'COORDENADOR'].includes(emp.nivel))
+                        .map(manager => (
+                          <option key={manager.id} value={manager.id}>
+                            {manager.nome} ({manager.cargo})
+                          </option>
+                        ))
+                      }
+                    </select>
+                  )}
                 </div>
 
-                {/* 🆕 NOVO: Tipo de Acesso */}
                 <div>
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">
                     Tipo de Acesso
@@ -384,7 +485,6 @@ const EditEmployeeModal = ({
                     value={editingEmployee.salario}
                     onChange={(e) => setEditingEmployee(prev => ({ ...prev, salario: e.target.value }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="5000.00"
                   />
                 </div>
 
@@ -392,20 +492,19 @@ const EditEmployeeModal = ({
                   <label className="block text-sm font-medium text-ol-gray-700 mb-1">Competências</label>
                   <input
                     type="text"
-                    value={editingEmployee.competencias?.join(', ') || ''}
-                    onChange={(e) => setEditingEmployee(prev => ({ 
-                      ...prev, 
-                      competencias: e.target.value.split(',').map(c => c.trim()).filter(c => c) 
+                    value={editingEmployee.competencias ? editingEmployee.competencias.join(', ') : ''}
+                    onChange={(e) => setEditingEmployee(prev => ({
+                      ...prev,
+                      competencias: e.target.value.split(',').map(c => c.trim()).filter(c => c)
                     }))}
                     className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Penetration Testing, OSINT, Social Engineering"
+                    placeholder="Competências separadas por vírgula"
                   />
-                  <p className="text-xs text-ol-gray-500 mt-1">Separadas por vírgula</p>
                 </div>
               </div>
             )}
 
-            {/* Botões de ação */}
+            {/* ✅ BOTÕES CORRIGIDOS - SALVAR EM TODAS AS ABAS */}
             <div className="flex justify-between pt-6 border-t">
               <button
                 type="button"
@@ -427,25 +526,27 @@ const EditEmployeeModal = ({
                     Anterior
                   </button>
                 )}
-                {activeTab !== 'profissional' ? (
+
+                {activeTab !== 'profissional' && (
                   <button
                     type="button"
                     onClick={() => {
                       if (activeTab === 'dados') setActiveTab('endereco');
                       if (activeTab === 'endereco') setActiveTab('profissional');
                     }}
-                    className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600"
+                    className="px-4 py-2 text-ol-brand-600 border border-ol-brand-300 rounded-md hover:bg-ol-brand-50"
                   >
                     Próximo
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600"
-                  >
-                    Salvar Alterações
-                  </button>
                 )}
+
+                {/* ✅ BOTÃO SALVAR SEMPRE VISÍVEL */}
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600"
+                >
+                  Salvar Alterações
+                </button>
               </div>
             </div>
           </form>

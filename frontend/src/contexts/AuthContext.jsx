@@ -1,128 +1,77 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authService } from '../services/authService';
 
 const AuthContext = createContext();
 
-// Hook para usar o contexto
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth deve ser usado dentro de AuthProvider');
+    throw new Error('useAuth deve ser usado dentro do AuthProvider');
   }
   return context;
 };
 
-// Provider do contexto
 export const AuthProvider = ({ children }) => {
-  // Usuário simulado - você pode trocar aqui para testar diferentes perfis
-  const [currentUser, setCurrentUser] = useState({
-    id: 1,
-    nome: "Carlos Silva",
-    access_level: "ADMIN", // ADMIN, DIRETORIA, GERENTE, COLABORADOR
-    manager_id: null,
-    equipe: "Red Team",
-    cargo: "Gerente de Segurança"
-  });
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  // Lista de usuários disponíveis para teste
-  const availableUsers = [
-    {
-      id: 1,
-      nome: "Carlos Admin",
-      access_level: "ADMIN",
-      manager_id: null,
-      equipe: "TI",
-      cargo: "Administrador do Sistema"
-    },
-    {
-      id: 2,
-      nome: "Maria Diretora",
-      access_level: "DIRETORIA",
-      manager_id: null,
-      equipe: "Diretoria",
-      cargo: "Diretora de Tecnologia"
-    },
-    {
-      id: 3,
-      nome: "João Gerente",
-      access_level: "GERENTE",
-      manager_id: 2,
-      equipe: "Red Team",
-      cargo: "Gerente de Segurança"
-    },
-    {
-      id: 4,
-      nome: "Ana Colaboradora",
-      access_level: "COLABORADOR",
-      manager_id: 3,
-      equipe: "Red Team",
-      cargo: "Analista Sênior"
-    }
-  ];
+  // Verificar autenticação na inicialização
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        if (authService.isAuthenticated()) {
+          const userData = await authService.getCurrentUser();
+          setUser(userData);
+        }
+      } catch (err) {
+        console.error('Erro ao verificar autenticação:', err);
+        authService.logout();
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Função para trocar usuário (para testes)
-  const switchUser = (userId) => {
-    const user = availableUsers.find(u => u.id === userId);
-    if (user) {
-      setCurrentUser(user);
+    checkAuth();
+  }, []);
+
+  // Login
+  const login = async (username, password) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await authService.login(username, password);
+      const userData = await authService.getCurrentUser();
+      setUser(userData);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Funções de permissão
-  const permissions = {
-    // ADMIN: Tudo relacionado a sistema
-    canManageUsers: () => currentUser.access_level === 'ADMIN',
-    canManageKnowledge: () => ['ADMIN', 'DIRETORIA'].includes(currentUser.access_level),
-    
-    // DIRETORIA: Ve tudo de todos
-    canViewAllEmployees: () => ['ADMIN', 'DIRETORIA'].includes(currentUser.access_level),
-    canViewSalary: (employee) => {
-      if (['ADMIN', 'DIRETORIA'].includes(currentUser.access_level)) return true;
-      if (currentUser.access_level === 'GERENTE') {
-        return employee.manager_id === currentUser.id; // Só da sua equipe
-      }
-      return employee.id === currentUser.id; // Só o próprio
-    },
-    
-    // GERENTE: Ve sua equipe + dados limitados dos outros
-    canViewPDI: (employee) => {
-      if (['ADMIN', 'DIRETORIA'].includes(currentUser.access_level)) return true;
-      if (currentUser.access_level === 'GERENTE') {
-        return employee.manager_id === currentUser.id; // Só da sua equipe
-      }
-      return employee.id === currentUser.id; // Só o próprio
-    },
-    
-    canViewMeetings: (employee) => {
-      if (['ADMIN', 'DIRETORIA'].includes(currentUser.access_level)) return true;
-      if (currentUser.access_level === 'GERENTE') {
-        return employee.manager_id === currentUser.id; // Só da sua equipe
-      }
-      return employee.id === currentUser.id; // Só o próprio
-    },
-    
-    // Permissões gerais
-    canEditEmployee: (employee) => {
-      if (['ADMIN', 'DIRETORIA'].includes(currentUser.access_level)) return true;
-      if (currentUser.access_level === 'GERENTE') {
-        return employee.manager_id === currentUser.id;
-      }
-      return false;
-    },
-    
-    canDeleteEmployee: () => ['ADMIN', 'DIRETORIA'].includes(currentUser.access_level),
-    
-    canAddEmployee: () => ['ADMIN', 'DIRETORIA', 'GERENTE'].includes(currentUser.access_level)
+  // Logout
+  const logout = () => {
+    authService.logout();
+    setUser(null);
+  };
+
+  // Simular troca de usuário (mantendo funcionalidade existente)
+  const switchUser = (role) => {
+    // Para manter compatibilidade com interface atual
+    setUser(prev => ({ ...prev, role }));
   };
 
   const value = {
-    currentUser,
-    availableUsers,
+    user,
+    loading,
+    error,
+    login,
+    logout,
     switchUser,
-    permissions,
-    isAdmin: () => currentUser.access_level === 'ADMIN',
-    isDiretoria: () => currentUser.access_level === 'DIRETORIA',
-    isGerente: () => currentUser.access_level === 'GERENTE',
-    isColaborador: () => currentUser.access_level === 'COLABORADOR'
+    isAuthenticated: !!user
   };
 
   return (

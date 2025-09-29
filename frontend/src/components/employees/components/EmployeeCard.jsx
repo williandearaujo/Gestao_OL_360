@@ -4,13 +4,11 @@ import { calcularAlertasFerias } from '../utils/vacationCalculations';
 
 const EmployeeCard = ({ 
   employee, 
-  employeeKnowledge, 
-  onViewDetails, 
-  onEdit, 
-  onDelete 
+  onViewDetails,
+  onEdit,
+  onDelete,
+  onManageLinks  // ✅ NOVA PROP
 }) => {
-  const employeeLinks = employeeKnowledge.filter(link => link.employee_id === employee.id);
-  const conhecimentosObtidos = employeeLinks.filter(link => link.status === 'OBTIDO').length;
   const alertasFerias = calcularAlertasFerias(employee);
 
   return (
@@ -29,7 +27,7 @@ const EmployeeCard = ({
                 </span>
               )}
             </div>
-            
+
             <div className="flex-1 min-w-0">
               <h3 className="text-base sm:text-lg font-semibold text-ol-gray-900 mb-1 break-words leading-tight">
                 {employee.nome}
@@ -47,10 +45,10 @@ const EmployeeCard = ({
               </div>
             </div>
           </div>
-          
+
           {/* Ações principais */}
           <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
-            <button 
+            <button
               onClick={() => onViewDetails(employee)}
               title="Ver perfil completo"
               className="text-ol-brand-600 hover:text-ol-brand-700 hover:bg-ol-brand-100 transition-colors p-1 rounded"
@@ -60,7 +58,7 @@ const EmployeeCard = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
               </svg>
             </button>
-            <button 
+            <button
               onClick={() => onEdit(employee)}
               title="Editar dados"
               className="text-ol-brand-600 hover:text-ol-brand-700 hover:bg-ol-brand-100 transition-colors p-1 rounded"
@@ -71,7 +69,7 @@ const EmployeeCard = ({
             </button>
           </div>
         </div>
-        
+
         {/* Contato */}
         <div className="text-xs text-ol-gray-500 space-y-1">
           <p className="break-words">{employee.email}</p>
@@ -99,7 +97,7 @@ const EmployeeCard = ({
 
       <div className="border-t border-ol-gray-100"></div>
 
-      {/* Ações com Day Off padronizado */}
+      {/* Ações com PDI, 1x1 e Day Off */}
       <div className="px-4 sm:px-6 py-3 sm:py-4 flex-shrink-0">
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -111,10 +109,10 @@ const EmployeeCard = ({
             }`}
             title="Gestão de PDI"
           >
-            PDI {employee.pdi.status === 'EM_DIA' ? '✓' : 
+            PDI {employee.pdi.status === 'EM_DIA' ? '✓' :
                  employee.pdi.status === 'ATRASADO' ? '!' : '?'}
           </button>
-          
+
           <button
             onClick={() => onViewDetails(employee)}
             className={`text-xs px-2 py-1 rounded transition-colors ${
@@ -124,11 +122,11 @@ const EmployeeCard = ({
             }`}
             title="Reuniões 1x1"
           >
-            1x1 {employee.reunioes_1x1.status === 'EM_DIA' ? '✓' : 
+            1x1 {employee.reunioes_1x1.status === 'EM_DIA' ? '✓' :
                  employee.reunioes_1x1.status === 'ATRASADO' ? '!' : '?'}
           </button>
-          
-          {/* Day Off padronizado */}
+
+          {/* Day Off */}
           <button
             onClick={() => onViewDetails(employee)}
             className={`text-xs px-2 py-1 rounded transition-colors ${
@@ -138,17 +136,31 @@ const EmployeeCard = ({
             }`}
             title="Day Off - Mês do Aniversário"
           >
-            Day Off {employee.dayoff.usado_ano_atual ? '✓' : 
+            Day Off {employee.dayoff.usado_ano_atual ? '✓' :
                     new Date().getMonth() + 1 === employee.dayoff.mes_aniversario ? '📅' : '-'}
           </button>
-          
-          <button
-            onClick={() => onDelete(employee.id)}
-            title="Remover colaborador"
-            className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded transition-colors hover:bg-red-200"
-          >
-            Excluir
-          </button>
+
+          {/* ✅ NOVO BOTÃO - GERENCIAR VÍNCULOS */}
+          {onManageLinks && (
+            <button
+              onClick={() => onManageLinks(employee)}
+              title="Gerenciar vínculos de conhecimento"
+              className="text-xs px-2 py-1 bg-yellow-100 text-yellow-700 rounded transition-colors hover:bg-yellow-200"
+            >
+              🔗 Vínculos
+            </button>
+          )}
+
+          {/* Botão excluir - só aparece se não tiver vínculos */}
+          {!onManageLinks && (
+            <button
+              onClick={() => onDelete(employee.id)}
+              title="Remover colaborador"
+              className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded transition-colors hover:bg-red-200"
+            >
+              Excluir
+            </button>
+          )}
         </div>
       </div>
 
@@ -162,11 +174,11 @@ const EmployeeCard = ({
           </svg>
           <span>Desde {new Date(employee.data_admissao).toLocaleDateString('pt-BR')}</span>
         </div>
-        {conhecimentosObtidos > 0 && (
-          <span className="text-xs bg-ol-brand-100 text-ol-brand-700 px-2 py-1 rounded">
-            {conhecimentosObtidos} conhecimento{conhecimentosObtidos > 1 ? 's' : ''}
-          </span>
-        )}
+
+        {/* Badge de vínculos (placeholder - será implementado depois) */}
+        <span className="text-xs bg-ol-brand-100 text-ol-brand-700 px-2 py-1 rounded">
+          Vínculos: Em breve
+        </span>
       </div>
     </div>
   );
