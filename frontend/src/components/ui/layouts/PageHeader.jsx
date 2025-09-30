@@ -11,52 +11,50 @@ const PageHeader = ({
   actions = []
 }) => {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
-      <div>
-        {/* Breadcrumbs */}
-        {breadcrumbs.length > 0 && (
-          <nav className="flex mb-2" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-2">
-              {breadcrumbs.map((crumb, index) => (
-                <li key={index} className="flex items-center">
-                  {index > 0 && (
-                    <svg className="w-4 h-4 text-gray-400 mx-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 111.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                  <span className={`text-sm ${
-                    index === breadcrumbs.length - 1 
-                      ? 'text-gray-900 font-medium' 
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}>
-                    {crumb}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          </nav>
-        )}
+    <div className="bg-white border-b border-gray-200 px-4 py-6 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          {/* Breadcrumbs */}
+          {breadcrumbs.length > 0 && (
+            <nav className="flex mb-2" aria-label="Breadcrumb">
+              <ol className="flex items-center space-x-2 text-sm text-gray-500">
+                {breadcrumbs.map((item, index) => (
+                  <li key={index} className="flex items-center">
+                    {index > 0 && (
+                      <svg className="w-4 h-4 mx-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    )}
+                    {item.href ? (
+                      <a href={item.href} className="hover:text-gray-700">{item.label}</a>
+                    ) : (
+                      <span className={index === breadcrumbs.length - 1 ? 'text-gray-900 font-medium' : ''}>{item.label}</span>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
 
-        {/* Título e subtítulo */}
-        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-        {subtitle && (
-          <p className="text-gray-600 mt-1">{subtitle}</p>
-        )}
-      </div>
+          {/* Título */}
+          <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
 
-      {/* Data e ações */}
-      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0 sm:space-x-4">
-        {/* Ações */}
+          {/* Subtítulo */}
+          {subtitle && (
+            <p className="mt-1 text-sm text-gray-500">{subtitle}</p>
+          )}
+        </div>
+
+        {/* Actions */}
         {actions.length > 0 && (
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-            {actions}
+          <div className="flex items-center space-x-3">
+            {actions.map((action, index) => (
+              <React.Fragment key={index}>
+                {action}
+              </React.Fragment>
+            ))}
           </div>
         )}
-
-        {/* Data de atualização */}
-        <div className="text-sm text-gray-500">
-          Última atualização: {new Date().toLocaleDateString('pt-BR')}
-        </div>
       </div>
     </div>
   );

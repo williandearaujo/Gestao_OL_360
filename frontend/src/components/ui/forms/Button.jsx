@@ -1,9 +1,5 @@
 import React from 'react';
 
-/**
- * Botão padronizado do Design System
- * Suporta diferentes variantes, tamanhos e estados
- */
 const Button = ({
   children,
   variant = 'primary',
@@ -18,13 +14,13 @@ const Button = ({
   ...props
 }) => {
   const variants = {
-    primary: 'bg-ol-brand-500 text-white hover:bg-ol-brand-600 focus:ring-ol-brand-500 shadow-sm',
-    secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-ol-brand-500 shadow-sm',
+    primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 shadow-sm',
+    secondary: 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 focus:ring-blue-500 shadow-sm',
     danger: 'bg-red-500 text-white hover:bg-red-600 focus:ring-red-500 shadow-sm',
     warning: 'bg-yellow-500 text-white hover:bg-yellow-600 focus:ring-yellow-500 shadow-sm',
     success: 'bg-green-500 text-white hover:bg-green-600 focus:ring-green-500 shadow-sm',
-    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-ol-brand-500',
-    link: 'text-ol-brand-600 hover:text-ol-brand-700 underline-offset-4 hover:underline'
+    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-blue-500',
+    link: 'text-blue-600 hover:text-blue-700 underline-offset-4 hover:underline'
   };
 
   const sizes = {

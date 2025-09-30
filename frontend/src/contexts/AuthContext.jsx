@@ -1,77 +1,225 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authService } from '../services/authService';
 
 const AuthContext = createContext();
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth deve ser usado dentro do AuthProvider');
+    throw new Error('useAuth deve ser usado dentro de AuthProvider');
   }
   return context;
 };
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [originalUser, setOriginalUser] = useState(null);
 
-  // Verificar autenticação na inicialização
+  // ✅ CARREGAR TOKEN SALVO NA INICIALIZAÇÃO
   useEffect(() => {
-    const checkAuth = async () => {
+    const initializeAuth = async () => {
       try {
-        if (authService.isAuthenticated()) {
-          const userData = await authService.getCurrentUser();
+        const savedToken = localStorage.getItem('gestao360_token');
+        const savedUser = localStorage.getItem('gestao360_user');
+        const savedOriginalUser = localStorage.getItem('gestao360_original_user');
+
+        if (savedToken && savedUser) {
+          setToken(savedToken);
+          const userData = JSON.parse(savedUser);
           setUser(userData);
+
+          if (savedOriginalUser) {
+            setOriginalUser(JSON.parse(savedOriginalUser));
+          } else {
+            setOriginalUser(userData);
+          }
+
+          setIsAuthenticated(true);
+          console.log('✅ Autenticação restaurada do localStorage');
+        } else {
+          console.log('ℹ️ Nenhum token salvo encontrado');
         }
-      } catch (err) {
-        console.error('Erro ao verificar autenticação:', err);
-        authService.logout();
+      } catch (error) {
+        console.error('❌ Erro na inicialização da auth:', error);
+        clearAuthData();
       } finally {
         setLoading(false);
       }
     };
 
-    checkAuth();
+    initializeAuth();
   }, []);
 
-  // Login
-  const login = async (username, password) => {
+  const login = async (credentials) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-      const result = await authService.login(username, password);
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
-      return result;
-    } catch (err) {
-      setError(err.message);
-      throw err;
+      console.log('🔐 Tentando login para:', credentials.username);
+
+      const formData = new FormData();
+      formData.append('username', credentials.username);
+      formData.append('password', credentials.password);
+
+      const response = await fetch('http://localhost:8000/auth/token', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro no login');
+      }
+
+      const data = await response.json();
+
+      setToken(data.access_token);
+      setUser(data.user);
+      setOriginalUser(data.user);
+      setIsAuthenticated(true);
+
+      localStorage.setItem('gestao360_token', data.access_token);
+      localStorage.setItem('gestao360_user', JSON.stringify(data.user));
+      localStorage.setItem('gestao360_original_user', JSON.stringify(data.user));
+      if (data.refresh_token) {
+        localStorage.setItem('gestao360_refresh_token', data.refresh_token);
+      }
+
+      console.log('✅ Login realizado com sucesso');
+      return { success: true, user: data.user };
+
+    } catch (error) {
+      console.error('❌ Erro no login:', error);
+      return { success: false, error: error.message };
     } finally {
       setLoading(false);
     }
   };
 
-  // Logout
-  const logout = () => {
-    authService.logout();
-    setUser(null);
+  // ✅ FUNÇÃO REGISTER (CORRIGIDA)
+  const register = async (userData) => {
+    setLoading(true);
+    try {
+      console.log('📝 Tentando registrar usuário:', userData.username);
+
+      const response = await fetch('http://localhost:8000/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Erro no registro');
+      }
+
+      const data = await response.json();
+
+      console.log('✅ Usuário registrado com sucesso:', data);
+
+      // Após registrar, fazer login automático
+      const loginResult = await login({
+        username: userData.username,
+        password: userData.password
+      });
+
+      return loginResult;
+
+    } catch (error) {
+      console.error('❌ Erro no registro:', error);
+      return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Simular troca de usuário (mantendo funcionalidade existente)
-  const switchUser = (role) => {
-    // Para manter compatibilidade com interface atual
-    setUser(prev => ({ ...prev, role }));
+  const logout = () => {
+    console.log('👋 Realizando logout');
+    clearAuthData();
+  };
+
+  const clearAuthData = () => {
+    setToken(null);
+    setUser(null);
+    setOriginalUser(null);
+    setIsAuthenticated(false);
+
+    localStorage.removeItem('gestao360_token');
+    localStorage.removeItem('gestao360_user');
+    localStorage.removeItem('gestao360_original_user');
+    localStorage.removeItem('gestao360_refresh_token');
+  };
+
+  const switchRole = (roleData) => {
+    if (!originalUser || originalUser.username !== 'admin') {
+      console.warn('⚠️ Switch de role disponível apenas para admin');
+      return;
+    }
+
+    console.log('🔄 Switching role para:', roleData.name);
+
+    const newUser = {
+      ...originalUser,
+      permissions: roleData.permissions,
+      is_admin: roleData.is_admin,
+      current_role: roleData.name,
+      role_switched: true
+    };
+
+    setUser(newUser);
+    localStorage.setItem('gestao360_user', JSON.stringify(newUser));
+
+    console.log('✅ Role alterado para:', roleData.name);
+  };
+
+  const resetRole = () => {
+    if (originalUser) {
+      console.log('🔄 Restaurando role original');
+      setUser(originalUser);
+      localStorage.setItem('gestao360_user', JSON.stringify(originalUser));
+    }
+  };
+
+  const getAuthHeaders = () => {
+    return token ? {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    } : {
+      'Content-Type': 'application/json'
+    };
   };
 
   const value = {
+    // Estados
     user,
+    token,
     loading,
-    error,
+    isAuthenticated,
+    originalUser,
+
+    // Funções
     login,
+    register, // ✅ ADICIONADO
     logout,
-    switchUser,
-    isAuthenticated: !!user
+    switchRole,
+    resetRole,
+
+    // Utilitários
+    isAdmin: user?.is_admin || false,
+    isDev: originalUser?.username === 'admin',
+    isRoleSwitched: user?.role_switched || false,
+    hasPermission: (permission) => user?.permissions?.[permission]?.read || false,
+    canWrite: (permission) => user?.permissions?.[permission]?.write || false,
+    canDelete: (permission) => user?.permissions?.[permission]?.delete || false,
+    getAuthHeaders,
+
+    // Informações úteis
+    username: user?.username || 'Usuário',
+    email: user?.email || '',
+    permissions: user?.permissions || {},
+    currentRole: user?.current_role || (user?.is_admin ? 'Admin' : 'Usuário')
   };
 
   return (

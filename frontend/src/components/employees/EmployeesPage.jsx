@@ -6,8 +6,20 @@ import { initialEmployees } from './data/mockData';
 import { calcularStatusFerias } from './utils/vacationCalculations';
 import { filterEmployees } from './utils/employeeUtils';
 
-// API Services
+// ✅ API Services - CORRIGIR IMPORT
 import { employeesService } from '../../services/employeesService';
+// ✅ DEBUG TEMPORÁRIO
+console.log('🔍 DEBUG - employeesService importado:', employeesService);
+
+// ✅ CORES OL CENTRALIZADAS
+import OL_COLORS from '../../config/olColors';
+
+// ✅ NOVO IMPORT - DADOS ADMIN
+import { useAdminData } from '../admin/hooks/useAdminData';
+
+// ✅ IMPORTS PARA MODAL DE VÍNCULOS
+import EmployeeKnowledgeModal from '../employee-knowledge/EmployeeKnowledgeModal';
+import AddKnowledgeModal from './modals/AddKnowledgeModal'; // ✅ ADICIONAR IMPORT
 
 // Components
 import EmployeeFilters from './components/EmployeeFilters';
@@ -38,6 +50,15 @@ const api = {
     const response = await fetch(`${API_BASE_URL}${url}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return { data: await response.json() };
+  },
+  post: async (url, data) => {
+    const response = await fetch(`${API_BASE_URL}${url}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return { data: await response.json() };
   }
 };
 
@@ -47,7 +68,7 @@ const employeeKnowledgeService = {
       const params = new URLSearchParams();
 
       if (filters.employee_id) params.append('employee_id', filters.employee_id);
-      if (filters.knowledge_id) params.append('knowledge_id', filters.knowledge_id);
+      if (filters.learning_item_id) params.append('learning_item_id', filters.learning_item_id);
       if (filters.status) params.append('status', filters.status);
 
       const url = `/employee-knowledge${params.toString() ? `?${params.toString()}` : ''}`;
@@ -55,6 +76,29 @@ const employeeKnowledgeService = {
       return response.data || [];
     } catch (error) {
       console.error('❌ Erro ao buscar vínculos:', error);
+      return [];
+    }
+  },
+
+  async create(linkData) {
+    try {
+      const response = await api.post('/employee-knowledge', linkData);
+      return response.data;
+    } catch (error) {
+      console.error('❌ Erro ao criar vínculo:', error);
+      throw error;
+    }
+  }
+};
+
+// ✅ SERVIÇO PARA CONHECIMENTOS
+const knowledgeService = {
+  async getAll() {
+    try {
+      const response = await api.get('/knowledge');
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao buscar conhecimentos:', error);
       return [];
     }
   }
@@ -73,7 +117,7 @@ const ModeIndicator = ({ useAPI, error, employeeLinksCount }) => (
       </div>
     ) : (
       <div className="flex items-center gap-2 text-blue-700">
-        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
         <span className="text-sm font-medium">Modo Mock Ativo - Dados de demonstração</span>
       </div>
     )}
@@ -83,12 +127,19 @@ const ModeIndicator = ({ useAPI, error, employeeLinksCount }) => (
   </PageSection>
 );
 
-const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) => {
+const EmployeesPage = ({ onBackToDashboard, useAPI = true, setCurrentPage }) => {
+  // ✅ DADOS ADMIN CENTRALIZADOS
+  const { realData, loading: adminLoading } = useAdminData();
+
   // Estados principais
   const [employees, setEmployees] = useState(initialEmployees);
   const [filters, setFilters] = useState({ search: '', equipe: '', nivel: '', status: '' });
   const [currentTime, setCurrentTime] = useState(new Date());
   const [employeeLinks, setEmployeeLinks] = useState([]);
+
+  // ✅ ESTADOS PARA CONHECIMENTOS
+  const [knowledge, setKnowledge] = useState([]);
+  const [knowledgeLoading, setKnowledgeLoading] = useState(false);
 
   // Estados para API
   const [loading, setLoading] = useState(false);
@@ -99,6 +150,14 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  // ✅ ESTADOS PARA MODAL DE VÍNCULOS
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [selectedEmployeeForLink, setSelectedEmployeeForLink] = useState(null);
+  const [knowledgeData, setKnowledgeData] = useState([]);
+
+  // ✅ ESTADOS PARA MODAL DE ADICIONAR CONHECIMENTO
+  const [showAddKnowledgeModal, setShowAddKnowledgeModal] = useState(false);
 
   // Estados para operações
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
@@ -111,20 +170,35 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     nome: '', email: '', telefone: '', cpf: '', rg: '', data_nascimento: '',
     estado_civil: 'SOLTEIRO', cargo: '', equipe: '', nivel: 'JUNIOR', status: 'ATIVO',
     data_admissao: new Date().toISOString().split('T')[0], salario: '',
-    endereco: { rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' },
+    endereco: {},
+    endereco_obj: {},
     competencias: [], avatar: null,
-    manager_id: null, team_id: null, access_level: 'COLABORADOR',
-    pdi: { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", checks: [], historico: [] },
-    reunioes_1x1: { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", historico: [] },
-    ferias: { ultimo_periodo: null, proximo_periodo: null, dias_disponivel: 30, status: "SEM_DIREITO", historico: [], ferias_vencidas: 0, pode_vender: 10 },
-    dayoff: { mes_aniversario: null, usado_ano_atual: false, data_usado: null, data_ultimo: null, data_atual: null, data_proximo: null, historico: [] }
+    manager_id: null, team_id: null, area_id: null, access_level: 'COLABORADOR'
   });
+
+  // ✅ FUNÇÃO PARA CARREGAR CONHECIMENTOS
+  const loadKnowledge = useCallback(async () => {
+    try {
+      setKnowledgeLoading(true);
+      const data = await knowledgeService.getAll();
+      setKnowledge(data);
+      setKnowledgeData(data); // ✅ TAMBÉM SETAR knowledgeData
+      console.log('✅ Conhecimentos carregados:', data.length);
+    } catch (error) {
+      console.error('❌ Erro ao carregar conhecimentos:', error);
+      setKnowledge([]);
+      setKnowledgeData([]);
+    } finally {
+      setKnowledgeLoading(false);
+    }
+  }, []);
 
   // ✅ FUNÇÃO PARA CARREGAR VÍNCULOS
   const loadEmployeeLinks = useCallback(async () => {
     try {
       const links = await employeeKnowledgeService.getAll();
       setEmployeeLinks(links);
+      console.log('✅ Vínculos carregados:', links.length);
     } catch (error) {
       console.error('❌ Erro ao carregar vínculos:', error);
       setEmployeeLinks([]);
@@ -137,20 +211,19 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
       setLoading(true);
       setError(null);
 
+      console.log('🔍 DEBUG - Chamando employeesService.getAll()');
       const apiEmployees = await employeesService.getAll();
+      console.log('🔍 DEBUG - Dados recebidos:', apiEmployees);
 
       const transformedEmployees = apiEmployees.map(emp => ({
         ...emp,
         equipe: emp.area || emp.equipe || 'N/A',
         competencias: emp.competencias || [],
-        endereco: emp.endereco || { rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' },
-        pdi: emp.pdi || { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", checks: [], historico: [] },
-        reunioes_1x1: emp.reunioes_1x1 || { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", historico: [] },
-        ferias: emp.ferias || { ultimo_periodo: null, proximo_periodo: null, dias_disponivel: 30, status: "SEM_DIREITO", historico: [], ferias_vencidas: 0, pode_vender: 10 },
-        dayoff: emp.dayoff || { mes_aniversario: null, usado_ano_atual: false, data_usado: null, data_ultimo: null, data_atual: null, data_proximo: null, historico: [] }
+        endereco: emp.endereco || {}
       }));
 
       setEmployees(transformedEmployees);
+      console.log('✅ Colaboradores carregados da API:', transformedEmployees.length);
 
     } catch (err) {
       console.error('Erro ao carregar funcionários da API:', err);
@@ -166,12 +239,15 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     if (useAPI) {
       loadEmployeesFromAPI();
       loadEmployeeLinks();
+      loadKnowledge(); // ✅ CARREGAR CONHECIMENTOS
     } else {
       setEmployees(initialEmployees);
       setEmployeeLinks([]);
+      setKnowledge([]);
+      setKnowledgeData([]);
       setError(null);
     }
-  }, [useAPI, loadEmployeesFromAPI, loadEmployeeLinks]);
+  }, [useAPI, loadEmployeesFromAPI, loadEmployeeLinks, loadKnowledge]);
 
   // Update horário Brasília
   useEffect(() => {
@@ -216,18 +292,98 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     return filterEmployees(employees, filters);
   }, [employees, filters]);
 
-  // ✅ HANDLERS OTIMIZADOS
-  const handleManageLinks = useCallback((employee) => {
-    if (setCurrentPage) {
-      setCurrentPage('employee-knowledge');
-    } else {
-      alert(`Navegando para vínculos de ${employee.nome}`);
-    }
-  }, [setCurrentPage]);
+  // ✅ FUNÇÃO CORRIGIDA PARA ABRIR MODAL DE VÍNCULOS DIRETO
+  const handleManageLinks = useCallback(async (employee) => {
+    console.log('🔍 Abrindo modal de vínculos para:', employee.nome);
 
-  const openDetailModal = useCallback((employee) => {
+    try {
+      // Carregar conhecimentos se ainda não carregou
+      if (knowledge.length === 0) {
+        console.log('🔍 Carregando conhecimentos...');
+        await loadKnowledge();
+      }
+
+      // Definir colaborador selecionado e abrir modal
+      setSelectedEmployeeForLink(employee);
+      setShowLinkModal(true);
+
+      console.log('🔍 Modal de vínculos deve abrir para:', employee.nome);
+
+    } catch (error) {
+      console.error('❌ Erro ao carregar conhecimentos:', error);
+      alert('Erro ao carregar conhecimentos. Tentando navegação...');
+
+      // Fallback: navegar para página de vínculos
+      if (setCurrentPage) {
+        setCurrentPage('employee-knowledge');
+      } else {
+        alert(`Navegando para vínculos de ${employee.nome}`);
+      }
+    }
+  }, [knowledge.length, loadKnowledge, setCurrentPage]);
+
+  // ✅ FUNÇÃO PARA FECHAR MODAL DE VÍNCULOS
+  const handleCloseLinkModal = () => {
+    console.log('🔍 Fechando modal de vínculos');
+    setShowLinkModal(false);
+    setSelectedEmployeeForLink(null);
+  };
+
+  // ✅ FUNÇÃO PARA SALVAR VÍNCULO
+  const handleSaveLinkModal = async () => {
+    console.log('🔍 Vínculo salvo - recarregando dados');
+    await loadEmployeeLinks(); // Recarregar vínculos
+    handleCloseLinkModal();
+  };
+
+  // ✅ FUNÇÃO PARA ABRIR MODAL DE ADICIONAR CONHECIMENTO
+  const handleShowAddKnowledgeModal = (employee) => {
+    console.log('🎯 Abrindo modal de adicionar conhecimento para:', employee.nome);
     setSelectedEmployee(employee);
+    setShowAddKnowledgeModal(true);
+  };
+
+  // ✅ FUNÇÃO PARA ADICIONAR CONHECIMENTO
+  const handleAddKnowledge = async (vinculoData) => {
+    try {
+      console.log('🚀 Salvando vínculo de conhecimento:', vinculoData);
+      await employeeKnowledgeService.create(vinculoData);
+
+      // Recarregar vínculos
+      await loadEmployeeLinks();
+
+      console.log('✅ Vínculo de conhecimento salvo com sucesso!');
+    } catch (error) {
+      console.error('❌ Erro ao salvar vínculo de conhecimento:', error);
+      throw error;
+    }
+  };
+
+  // ✅ FUNÇÃO PARA UPLOAD DE ARQUIVO
+  const handleFileUpload = async (file) => {
+    try {
+      console.log('📁 Upload de arquivo:', file.name);
+      // Implementar upload de arquivo conforme necessário
+      return file; // Por enquanto, retorna o próprio arquivo
+    } catch (error) {
+      console.error('❌ Erro ao fazer upload:', error);
+      throw error;
+    }
+  };
+
+  // ✅ FUNÇÃO CORRIGIDA COM DEBUG
+  const openDetailModal = useCallback((employee) => {
+    console.log('🔍 openDetailModal - INÍCIO');
+    console.log('🔍 openDetailModal - employee recebido:', employee);
+    console.log('🔍 openDetailModal - employee.nome:', employee?.nome);
+
+    // SETAR O EMPLOYEE SELECIONADO
+    setSelectedEmployee(employee);
+    console.log('🔍 openDetailModal - selectedEmployee setado');
+
+    // ABRIR O MODAL
     setShowDetailModal(true);
+    console.log('🔍 openDetailModal - modal deve abrir');
   }, []);
 
   const openEditModal = useCallback((employee) => {
@@ -274,12 +430,10 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
       }
     } else {
       const newId = Math.max(...employees.map(emp => emp.id)) + 1;
-      const dataNascimento = new Date(newEmployee.data_nascimento);
       setEmployees(prev => [...prev, {
         ...newEmployee,
         id: newId,
-        salario: parseFloat(newEmployee.salario) || 0,
-        dayoff: { ...newEmployee.dayoff, mes_aniversario: dataNascimento.getMonth() + 1 }
+        salario: parseFloat(newEmployee.salario) || 0
       }]);
     }
 
@@ -287,13 +441,10 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
       nome: '', email: '', telefone: '', cpf: '', rg: '', data_nascimento: '',
       estado_civil: 'SOLTEIRO', cargo: '', equipe: '', nivel: 'JUNIOR', status: 'ATIVO',
       data_admissao: new Date().toISOString().split('T')[0], salario: '',
-      endereco: { rua: '', numero: '', complemento: '', bairro: '', cidade: '', estado: '', cep: '' },
+      endereco: {},
+      endereco_obj: {},
       competencias: [], avatar: null,
-      manager_id: null, team_id: null, access_level: 'COLABORADOR',
-      pdi: { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", checks: [], historico: [] },
-      reunioes_1x1: { data_ultimo: null, data_atual: null, data_proximo: null, status: "NUNCA_AGENDADO", historico: [] },
-      ferias: { ultimo_periodo: null, proximo_periodo: null, dias_disponivel: 30, status: "SEM_DIREITO", historico: [], ferias_vencidas: 0, pode_vender: 10 },
-      dayoff: { mes_aniversario: null, usado_ano_atual: false, data_usado: null, data_ultimo: null, data_atual: null, data_proximo: null, historico: [] }
+      manager_id: null, team_id: null, area_id: null, access_level: 'COLABORADOR'
     });
     setShowAddModal(false);
   }, [useAPI, newEmployee, employees, loadEmployeesFromAPI, loadEmployeeLinks]);
@@ -326,18 +477,32 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     setEditingEmployee(null);
   }, [useAPI, editingEmployee, loadEmployeesFromAPI, loadEmployeeLinks]);
 
-  const handleDeleteEmployee = useCallback((employeeId) => {
-    const employee = employees.find(emp => emp.id === employeeId);
-    if (employee) {
-      setEmployeeToDelete(employee);
-      setShowDeleteModal(true);
-    }
-  }, [employees]);
+ // ✅ CORREÇÃO: handleDeleteEmployee deve receber o OBJETO, não o ID
+const handleDeleteEmployee = useCallback((employee) => {
+  console.log('🔍 handleDeleteEmployee chamado com employee COMPLETO:', employee);
+  console.log('🔍 handleDeleteEmployee - employee.id:', employee?.id);
+  console.log('🔍 handleDeleteEmployee - employee.nome:', employee?.nome);
 
+  // ✅ SETAR O OBJETO COMPLETO, NÃO APENAS O ID
+  setEmployeeToDelete(employee); // ← DEVE SER O OBJETO COMPLETO
+  setShowDeleteModal(true);
+}, []);
+
+
+  // ✅ CORRIGIR FUNÇÃO handleSoftDelete COM DEBUG
   const handleSoftDelete = useCallback(async (employeeId) => {
+    console.log('🔍 handleSoftDelete chamado com ID:', employeeId); // ✅ DEBUG
+
+    if (!employeeId) {
+      console.error('❌ Employee ID é undefined!');
+      alert('Erro: ID do funcionário não encontrado!');
+      return;
+    }
+
     if (useAPI) {
       try {
         setDeleteLoading(true);
+        console.log('🔍 Chamando employeesService.inactivate com ID:', employeeId);
         await employeesService.inactivate(employeeId);
         alert('Funcionário inativado com sucesso!');
         await loadEmployeesFromAPI();
@@ -359,6 +524,14 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
   }, [useAPI, loadEmployeesFromAPI, loadEmployeeLinks]);
 
   const handleHardDelete = useCallback(async (employeeId) => {
+    console.log('🔍 handleHardDelete chamado com ID:', employeeId); // ✅ DEBUG
+
+    if (!employeeId) {
+      console.error('❌ Employee ID é undefined!');
+      alert('Erro: ID do funcionário não encontrado!');
+      return;
+    }
+
     if (useAPI) {
       try {
         setDeleteLoading(true);
@@ -380,7 +553,7 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     setEmployeeToDelete(null);
   }, [useAPI, loadEmployeesFromAPI, loadEmployeeLinks]);
 
-  // ✅ AÇÕES DO HEADER
+  // ✅ AÇÕES DO HEADER COM CORES OL
   const headerActions = useMemo(() => {
     const actions = [
       <Button
@@ -388,6 +561,11 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
         variant="primary"
         icon={UserPlus}
         onClick={() => setShowAddModal(true)}
+        style={{
+          backgroundColor: OL_COLORS.primary,
+          borderColor: OL_COLORS.primary,
+          color: 'white'
+        }}
       >
         Novo Colaborador
       </Button>
@@ -395,14 +573,19 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
 
     if (setCurrentPage) {
       actions.push(
-        <Button
-          key="links"
-          variant="warning"
-          icon={Link}
-          onClick={() => setCurrentPage('employee-knowledge')}
-        >
-          Todos os Vínculos ({employeeLinks.length})
-        </Button>
+       <Button
+  key="links"
+  variant="warning"
+  icon={Link}
+  onClick={() => setCurrentPage('employee-knowledge')}
+  style={{
+    backgroundColor: OL_COLORS.accent || '#f59e0b',  // ✅ COR DE DESTAQUE
+    borderColor: OL_COLORS.accent || '#f59e0b',
+    color: '#ffffff'
+  }}
+>
+  Vínculos ({employeeLinks.length})
+</Button>
       );
     }
 
@@ -413,6 +596,10 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
           variant="ghost"
           icon={RefreshCw}
           onClick={refreshEmployeeLinks}
+          style={{
+            color: OL_COLORS.primary,
+            borderColor: OL_COLORS.light
+          }}
         >
           Atualizar
         </Button>
@@ -422,7 +609,7 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
     return actions;
   }, [employeeLinks.length, setCurrentPage, useAPI, refreshEmployeeLinks]);
 
-  if (loading) {
+  if (loading && !employees.length) {
     return <Loading fullScreen text={useAPI ? 'Carregando dados da API...' : 'Carregando...'} />;
   }
 
@@ -449,7 +636,7 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
         employeeLinksCount={employeeLinks.length}
       />
 
-      {/* Header */}
+      {/* ✅ HEADER COM AÇÕES E CORES OL */}
       <PageHeader
         title="Colaboradores"
         subtitle={`Sistema completo de gestão de colaboradores e competências • ${currentTime.toLocaleString('pt-BR', {timeZone: 'America/Sao_Paulo'})}`}
@@ -490,58 +677,6 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
           icon={Link}
           color="purple"
         />
-      </div>
-
-      {/* ✅ AÇÕES EM CARDS SEPARADOS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div
-          className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-ol-brand-300"
-          onClick={() => setShowAddModal(true)}
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-ol-brand-50 text-ol-brand-600 rounded-lg flex items-center justify-center">
-              <UserPlus className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900">Novo Colaborador</h3>
-              <p className="text-sm text-gray-500">Adicionar membro à equipe</p>
-            </div>
-          </div>
-        </div>
-
-        {setCurrentPage && (
-          <div
-            className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-yellow-300"
-            onClick={() => setCurrentPage('employee-knowledge')}
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-yellow-50 text-yellow-600 rounded-lg flex items-center justify-center">
-                <Link className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Gerenciar Vínculos</h3>
-                <p className="text-sm text-gray-500">{employeeLinks.length} vínculos ativos</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {useAPI && (
-          <div
-            className="bg-white p-6 rounded-lg border shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-gray-300"
-            onClick={refreshEmployeeLinks}
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gray-50 text-gray-600 rounded-lg flex items-center justify-center">
-                <RefreshCw className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Atualizar Dados</h3>
-                <p className="text-sm text-gray-500">Sincronizar com servidor</p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* ✅ FILTROS EM SEÇÃO SEPARADA */}
@@ -585,55 +720,115 @@ const EmployeesPage = ({ onBackToDashboard, useAPI = false, setCurrentPage }) =>
         )}
       </PageSection>
 
-      {/* Modais */}
-      <EmployeeDetailModal
-        isOpen={showDetailModal}
-        onClose={() => setShowDetailModal(false)}
-        selectedEmployee={selectedEmployee}
-        setSelectedEmployee={setSelectedEmployee}
-        setEmployees={setEmployees}
-        employees={employees}
-        onManageLinks={handleManageLinks}
-        employeeLinks={employeeLinks}
-        setEmployeeLinks={setEmployeeLinks}
-      />
+    {/* ✅ MODAIS CORRIGIDOS COMPLETAMENTE */}
+<EmployeeDetailModal
+  isOpen={showDetailModal}
+  onClose={() => {
+    console.log('🔍 Fechando modal de detalhes');
+    setShowDetailModal(false);
+    setSelectedEmployee(null);
+  }}
+  employee={selectedEmployee}
+  setSelectedEmployee={setSelectedEmployee}
+  setEmployees={setEmployees}
+  employeeKnowledge={employeeLinks}
+  setEmployeeKnowledge={setEmployeeLinks}
+  knowledgeCatalog={knowledgeData} // ✅ CORREÇÃO
+  onShowAddKnowledgeModal={handleShowAddKnowledgeModal}
+  onFileUpload={handleFileUpload}
+  onEdit={openEditModal}
+/>
 
-      <AddEmployeeModal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        newEmployee={newEmployee}
-        setNewEmployee={setNewEmployee}
-        onAddEmployee={handleAddEmployee}
-        onPhotoUpload={handlePhotoUpload}
-        employees={employees}
-        useAPI={useAPI}
-      />
+<AddEmployeeModal
+  isOpen={showAddModal}
+  onClose={() => setShowAddModal(false)}
+  newEmployee={newEmployee}
+  setNewEmployee={setNewEmployee}
+  onAddEmployee={handleAddEmployee}
+  onPhotoUpload={handlePhotoUpload}
+  useAPI={useAPI}
+  adminData={realData}
+  adminLoading={adminLoading}
+/>
 
-      <EditEmployeeModal
-        isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setEditingEmployee(null);
-        }}
-        editingEmployee={editingEmployee}
-        setEditingEmployee={setEditingEmployee}
-        onEditEmployee={handleEditEmployee}
-        onPhotoUpload={handlePhotoUpload}
-        employees={employees}
-        useAPI={useAPI}
-      />
+<EditEmployeeModal
+  isOpen={showEditModal}
+  onClose={() => {
+    setShowEditModal(false);
+    setEditingEmployee(null);
+  }}
+  editingEmployee={editingEmployee}
+  setEditingEmployee={setEditingEmployee}
+  onEditEmployee={handleEditEmployee}
+  onPhotoUpload={handlePhotoUpload}
+  useAPI={useAPI}
+  adminData={realData}
+  adminLoading={adminLoading}
+/>
 
-      <ConfirmDeleteModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setEmployeeToDelete(null);
-        }}
-        employee={employeeToDelete}
-        onInactivate={handleSoftDelete}
-        onDelete={handleHardDelete}
-        loading={deleteLoading}
-      />
+{/* ✅ CORREÇÃO FINAL - ConfirmDeleteModal */}
+<ConfirmDeleteModal
+  isOpen={showDeleteModal}
+  onClose={() => {
+    setShowDeleteModal(false);
+    setEmployeeToDelete(null);
+  }}
+  employee={employeeToDelete}
+  onInactivate={() => {
+    console.log('🔍 EmployeesPage - Inativar clicked, employeeToDelete:', employeeToDelete);
+    console.log('🔍 EmployeesPage - employeeToDelete type:', typeof employeeToDelete);
+    console.log('🔍 EmployeesPage - employeeToDelete.id:', employeeToDelete?.id);
+
+    // ✅ VERIFICAÇÃO CORRIGIDA - DEVE SER OBJETO COM PROPRIEDADE ID
+    if (employeeToDelete && typeof employeeToDelete === 'object' && employeeToDelete.id) {
+      handleSoftDelete(employeeToDelete.id);
+    } else {
+      console.error('❌ employeeToDelete não é um objeto válido:', employeeToDelete);
+      alert('Erro: Funcionário não identificado para inativar!');
+    }
+  }}
+  onDelete={() => {
+    console.log('🔍 EmployeesPage - Delete clicked, employeeToDelete:', employeeToDelete);
+    console.log('🔍 EmployeesPage - employeeToDelete type:', typeof employeeToDelete);
+    console.log('🔍 EmployeesPage - employeeToDelete.id:', employeeToDelete?.id);
+
+    // ✅ VERIFICAÇÃO CORRIGIDA - DEVE SER OBJETO COM PROPRIEDADE ID
+    if (employeeToDelete && typeof employeeToDelete === 'object' && employeeToDelete.id) {
+      handleHardDelete(employeeToDelete.id);
+    } else {
+      console.error('❌ employeeToDelete não é um objeto válido:', employeeToDelete);
+      alert('Erro: Funcionário não identificado para deletar!');
+    }
+  }}
+  loading={deleteLoading}
+/>
+
+
+{/* ✅ MODAL DE VÍNCULOS PARA COLABORADOR ESPECÍFICO */}
+<EmployeeKnowledgeModal
+  isOpen={showLinkModal}
+  onClose={handleCloseLinkModal}
+  editingLink={null}
+  employees={employees}
+  knowledge={knowledgeData} // ✅ CORREÇÃO
+  onSave={handleSaveLinkModal}
+  preSelectedEmployee={selectedEmployeeForLink}
+/>
+
+{/* ✅ MODAL DE ADICIONAR CONHECIMENTO */}
+<AddKnowledgeModal
+  isOpen={showAddKnowledgeModal}
+  onClose={() => {
+    setShowAddKnowledgeModal(false);
+    setSelectedEmployee(null);
+  }}
+  selectedEmployee={selectedEmployee}
+  knowledgeCatalog={knowledgeData} // ✅ CORREÇÃO
+  onAddKnowledge={handleAddKnowledge}
+  onFileUpload={handleFileUpload}
+/>
+
+
     </PageContainer>
   );
 };

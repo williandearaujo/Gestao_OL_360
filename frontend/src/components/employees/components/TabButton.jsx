@@ -1,19 +1,25 @@
 import React from 'react';
 
-const TabButton = ({ id, label, activeTab, setActiveTab, count, alert }) => (
-  <button
-    onClick={() => setActiveTab(id)}
-    className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors relative ${
-      activeTab === id
-        ? 'bg-ol-brand-500 text-white'
-        : 'text-ol-brand-600 hover:bg-ol-brand-100'
-    }`}
-  >
-    {label} {count !== undefined && `(${count})`}
-    {alert && (
-      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
-    )}
-  </button>
-);
+const TabButton = ({ id, label, activeTab, setActiveTab, disabled = false }) => {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && setActiveTab(id)}
+      disabled={disabled}
+      className={`px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-all duration-200 ${
+        activeTab === id
+          ? 'border-red-600 text-red-600 bg-red-50'
+          : disabled
+          ? 'border-transparent text-gray-400 cursor-not-allowed'
+          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+      }`}
+    >
+      {label}
+      {disabled && (
+        <span className="ml-1 text-xs text-gray-400">(Em breve)</span>
+      )}
+    </button>
+  );
+};
 
 export default TabButton;

@@ -1,8 +1,9 @@
 import React from 'react';
 
+// ✅ VERSÃO LIMPA SEM INTERFERIR COM STICKY
 const PageContainer = ({ children, className = '' }) => {
   return (
-    <div className={`flex-1 space-y-6 p-6 ${className}`}>
+    <div className={`p-6 ${className}`}>
       {children}
     </div>
   );

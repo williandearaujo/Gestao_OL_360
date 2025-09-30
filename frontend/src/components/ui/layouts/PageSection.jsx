@@ -11,12 +11,14 @@ const PageSection = ({
   headerActions = null
 }) => {
   return (
-    <div className={`bg-white rounded-lg border shadow-sm ${className}`}>
+    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden ${className}`}>
       {/* Header da seção */}
-      {title && (
-        <div className="p-6 border-b border-gray-200">
+      {(title || headerActions) && (
+        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+            {title && (
+              <h3 className="text-lg font-medium text-gray-900">{title}</h3>
+            )}
             {headerActions && (
               <div className="flex items-center space-x-2">
                 {headerActions}
@@ -26,8 +28,8 @@ const PageSection = ({
         </div>
       )}
 
-      {/* Conteúdo da seção */}
-      <div className="p-6">
+      {/* Conteúdo */}
+      <div className="px-6 py-6">
         {children}
       </div>
     </div>

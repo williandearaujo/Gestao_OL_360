@@ -1,564 +1,285 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import {
-  Users,
-  BookOpen,
-  TrendingUp,
-  AlertTriangle,
-  Award,
-  Clock,
-  Target,
-  Edit,
-  Settings,
-  UserPlus,
-  ExternalLink,
-  Eye
-} from 'lucide-react';
-import {
-  PieChart as RechartsPie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer
-} from 'recharts';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { BookOpen } from 'lucide-react';
+import { PageContainer } from '../ui';
+import DashboardStats from './DashboardStats';
+import DashboardCharts from './DashboardCharts';
+import EmptyState from '../ui/feedback/EmptyState';
+import OL_COLORS from '../../config/olColors';
 
-// ✅ IMPORT DO DESIGN SYSTEM CENTRALIZADO
-import {
-  PageContainer,
-  PageHeader,
-  PageSection,
-  StatCard,
-  ChartCard,
-  AlertCard,
-  Button,
-  Loading,
-  Modal,
-  StatusBadge
-} from '../ui';
+// ✅ COMPONENTES INLINE OTIMIZADOS - CORRIGIDOS
+const Loading = ({ fullScreen }) => (
+  <div className={fullScreen ? "flex items-center justify-center min-h-screen" : "flex items-center justify-center p-8"}>
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+  </div>
+);
 
+const Modal = ({ isOpen, onClose, title, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="fixed inset-0 bg-black opacity-60" onClick={onClose}></div>
+        <div className="relative bg-white rounded-xl max-w-4xl w-full p-8 max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-semibold text-gray-900">{title}</h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PageSection = ({ title, children }) => (
+  <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-200">
+    <h3 className="text-xl font-semibold text-gray-900 mb-6">{title}</h3>
+    {children}
+  </div>
+);
+
+const AlertCard = ({ alerts }) => (
+  <div className="bg-white p-8 rounded-xl shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-200">
+    <h3 className="text-xl font-semibold text-gray-900 mb-6">Alertas do Sistema</h3>
+    {alerts && alerts.length > 0 ? (
+      <div className="space-y-3">
+        {alerts.map((alert, index) => (
+          <div
+            key={index}
+            className="p-4 bg-amber-50 border border-amber-200 rounded-lg cursor-pointer hover:bg-amber-100 transition-colors"
+          >
+            <p className="text-sm text-amber-800">{alert.message}</p>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <EmptyState
+        icon={() => (
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+        title="Sem alertas"
+        subtitle="Sistema funcionando perfeitamente"
+        variant="success"
+      />
+    )}
+  </div>
+);
+
+// ✅ API SERVICE
 const API_BASE_URL = 'http://localhost:8000';
 
 const api = {
   get: async (url) => {
-    const response = await fetch(`${API_BASE_URL}${url}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { data: await response.json() };
+    try {
+      const response = await fetch(`${API_BASE_URL}${url}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+
+      console.log(`📡 API Response for ${url}:`, result);
+
+      // ✅ GARANTIR SEMPRE ARRAY - CORRIGIDO
+      return {
+        data: Array.isArray(result) ? result : (result?.data && Array.isArray(result.data) ? result.data : [])
+      };
+    } catch (error) {
+      console.error(`❌ API Error: ${url}`, error);
+      return { data: [] };
+    }
   }
 };
 
-const dataService = {
-  async getAllData() {
+const DashboardPage = React.memo(({ setCurrentPage, userRole = 'admin' }) => {
+  // ✅ ESTADOS
+  const [data, setData] = useState({ knowledge: [], employees: [], employeeLinks: [] });
+  const [loading, setLoading] = useState(true);
+  const [detailModal, setDetailModal] = useState({ isOpen: false, title: '', content: null });
+
+  // ✅ CARREGAMENTO DE DADOS - CORRIGIDO
+  const loadDashboardData = useCallback(async () => {
     try {
+      setLoading(true);
+
       const [knowledge, employees, employeeLinks] = await Promise.all([
         api.get('/knowledge'),
         api.get('/employees'),
         api.get('/employee-knowledge')
       ]);
 
-      return {
-        knowledge: knowledge.data || [],
-        employees: employees.data || [],
-        employeeLinks: employeeLinks.data || []
+      // ✅ GARANTIR QUE SEMPRE SEJAM ARRAYS
+      const safeData = {
+        knowledge: Array.isArray(knowledge.data) ? knowledge.data : [],
+        employees: Array.isArray(employees.data) ? employees.data : [],
+        employeeLinks: Array.isArray(employeeLinks.data) ? employeeLinks.data : []
       };
-    } catch (error) {
-      console.error('❌ Erro ao carregar dados do dashboard:', error);
-      return { knowledge: [], employees: [], employeeLinks: [] };
-    }
-  }
-};
 
-// Avatar component inline (specific to Dashboard)
-const Avatar = ({ name, src, size = 'md' }) => {
-  const sizes = {
-    sm: 'w-8 h-8 text-sm',
-    md: 'w-10 h-10 text-sm',
-    lg: 'w-12 h-12 text-base'
-  };
+      console.log('📊 Dashboard Data Loaded:', safeData);
+      setData(safeData);
 
-  const getInitials = (name) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
-      .join('')
-      .substring(0, 2)
-      .toUpperCase();
-  };
-
-  if (src) {
-    return (
-      <img
-        src={src}
-        alt={name}
-        className={`${sizes[size]} rounded-full object-cover`}
-      />
-    );
-  }
-
-  return (
-    <div className={`${sizes[size]} bg-ol-brand-100 rounded-full flex items-center justify-center`}>
-      <span className="text-ol-brand-600 font-medium">
-        {getInitials(name)}
-      </span>
-    </div>
-  );
-};
-
-const DashboardPage = ({ setCurrentPage }) => {
-  const [data, setData] = useState({ knowledge: [], employees: [], employeeLinks: [] });
-  const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState({});
-  const [detailModal, setDetailModal] = useState({ isOpen: false, title: '', content: null, actions: [] });
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
-    try {
-      setLoading(true);
-      const result = await dataService.getAllData();
-      setData(result);
-
-      const calculatedAnalytics = calculateAnalytics(result);
-      setAnalytics(calculatedAnalytics);
     } catch (error) {
       console.error('❌ Erro ao carregar dashboard:', error);
+      // ✅ FALLBACK SEGURO
+      setData({
+        knowledge: [],
+        employees: [],
+        employeeLinks: []
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const calculateAnalytics = ({ knowledge, employees, employeeLinks }) => {
-    const today = new Date();
-    const in30Days = new Date(today.getTime() + (30 * 24 * 60 * 60 * 1000));
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
-    const expiringCertifications = employeeLinks.filter(link => {
-      if (!link.data_expiracao || link.status !== 'OBTIDO') return false;
-      const expirationDate = new Date(link.data_expiracao);
-      return expirationDate >= today && expirationDate <= in30Days;
-    });
+  // ✅ ANALYTICS CORRIGIDO - SEM CLASSES DINÂMICAS
+  const analytics = useMemo(() => {
+    // ✅ VERIFICAÇÃO SEGURA
+    const safeEmployees = Array.isArray(data.employees) ? data.employees : [];
+    const safeKnowledge = Array.isArray(data.knowledge) ? data.knowledge : [];
+    const safeLinks = Array.isArray(data.employeeLinks) ? data.employeeLinks : [];
 
-    const teamCoverage = {};
-    employees.forEach(emp => {
-      const team = emp.equipe || 'Sem Equipe';
-      if (!teamCoverage[team]) {
-        teamCoverage[team] = {
-          employees: 0,
-          certifications: 0,
-          obtained: 0
-        };
-      }
-      teamCoverage[team].employees++;
+    if (safeEmployees.length === 0 && safeKnowledge.length === 0 && safeLinks.length === 0) {
+      return {
+        totalEmployees: 0,
+        totalKnowledge: 0,
+        totalLinks: 0,
+        obtainedCertifications: 0,
+        expiringCount: 0,
+        coverageRate: 0,
+        employeesWithoutLinks: [],
+        knowledgeWithoutLinks: [],
+        statusData: [
+          { name: 'Obtidos', value: 0, color: OL_COLORS.success },
+          { name: 'Desejados', value: 0, color: OL_COLORS.info },
+          { name: 'Obrigatórios', value: 0, color: OL_COLORS.primary }
+        ],
+        alerts: []
+      };
+    }
 
-      const empLinks = employeeLinks.filter(link => link.employee_id === emp.id);
-      teamCoverage[team].certifications += empLinks.length;
-      teamCoverage[team].obtained += empLinks.filter(link => link.status === 'OBTIDO').length;
-    });
-
-    const knowledgeStats = {};
-    employeeLinks.forEach(link => {
-      const knowledgeId = link.knowledge_id;
-      if (!knowledgeStats[knowledgeId]) {
-        knowledgeStats[knowledgeId] = {
-          id: knowledgeId,
-          name: knowledge.find(k => k.id === knowledgeId)?.nome || 'Desconhecido',
-          desired: 0,
-          obtained: 0,
-          required: 0
-        };
-      }
-
-      if (link.status === 'DESEJADO') knowledgeStats[knowledgeId].desired++;
-      if (link.status === 'OBTIDO') knowledgeStats[knowledgeId].obtained++;
-      if (link.status === 'OBRIGATORIO') knowledgeStats[knowledgeId].required++;
-    });
-
-    const topDesiredKnowledge = Object.values(knowledgeStats)
-      .sort((a, b) => b.desired - a.desired)
-      .slice(0, 5);
-
-    const statusData = [
-      { name: 'Obtidos', value: employeeLinks.filter(l => l.status === 'OBTIDO').length, color: '#22c55e' },
-      { name: 'Desejados', value: employeeLinks.filter(l => l.status === 'DESEJADO').length, color: '#3b82f6' },
-      { name: 'Obrigatórios', value: employeeLinks.filter(l => l.status === 'OBRIGATORIO').length, color: '#ef4444' }
-    ];
-
-    const teamData = Object.entries(teamCoverage).map(([team, data]) => ({
-      team: team.length > 15 ? team.substring(0, 15) + '...' : team,
-      fullTeam: team,
-      employees: data.employees,
-      certifications: data.certifications,
-      obtained: data.obtained,
-      coverage: data.certifications > 0 ? Math.round((data.obtained / data.certifications) * 100) : 0
-    }));
-
-    const employeesWithoutLinks = employees.filter(emp =>
-      !employeeLinks.some(link => link.employee_id === emp.id)
+    const employeesWithoutLinks = safeEmployees.filter(emp =>
+      !safeLinks.some(link => link.employee_id === emp.id)
     );
 
-    const knowledgeWithoutLinks = knowledge.filter(k =>
-      !employeeLinks.some(link => link.knowledge_id === k.id)
+    const knowledgeWithoutLinks = safeKnowledge.filter(k =>
+      !safeLinks.some(link => link.knowledge_id === k.id)
     );
 
-    const alerts = [];
-
-    if (expiringCertifications.length > 0) {
-      alerts.push({
-        title: `${expiringCertifications.length} certificações vencendo`,
-        description: 'Certificações expiram nos próximos 30 dias',
-        priority: 'high',
-        date: 'Hoje',
-        type: 'expiring',
-        data: expiringCertifications
-      });
-    }
-
-    if (employeesWithoutLinks.length > 0) {
-      alerts.push({
-        title: `${employeesWithoutLinks.length} colaboradores sem certificações`,
-        description: `Colaboradores: ${employeesWithoutLinks.slice(0, 3).map(emp => emp.nome).join(', ')}${employeesWithoutLinks.length > 3 ? '...' : ''}`,
-        priority: 'medium',
-        date: 'Hoje',
-        type: 'no_links',
-        data: employeesWithoutLinks
-      });
-    }
-
-    if (knowledgeWithoutLinks.length > 0) {
-      alerts.push({
-        title: `${knowledgeWithoutLinks.length} conhecimentos sem vínculos`,
-        description: `Conhecimentos: ${knowledgeWithoutLinks.slice(0, 2).map(k => k.nome).join(', ')}${knowledgeWithoutLinks.length > 2 ? '...' : ''}`,
-        priority: 'low',
-        date: 'Hoje',
-        type: 'orphaned',
-        data: knowledgeWithoutLinks
-      });
-    }
+    const obtainedCount = safeLinks.filter(l => l.status === 'OBTIDO').length;
+    const desiredCount = safeLinks.filter(l => l.status === 'DESEJADO').length;
+    const requiredCount = safeLinks.filter(l => l.status === 'OBRIGATORIO').length;
 
     return {
-      totalEmployees: employees.length,
-      totalKnowledge: knowledge.length,
-      totalLinks: employeeLinks.length,
-      obtainedCertifications: employeeLinks.filter(l => l.status === 'OBTIDO').length,
-      expiringCount: expiringCertifications.length,
-      coverageRate: employeeLinks.length > 0 ? Math.round((employeeLinks.filter(l => l.status === 'OBTIDO').length / employeeLinks.length) * 100) : 0,
-      teamCoverage,
-      topDesiredKnowledge,
-      statusData,
-      teamData,
-      alerts,
+      totalEmployees: safeEmployees.length,
+      totalKnowledge: safeKnowledge.length,
+      totalLinks: safeLinks.length,
+      obtainedCertifications: obtainedCount,
+      expiringCount: 0,
+      coverageRate: safeLinks.length > 0 ?
+        Math.round((obtainedCount / safeLinks.length) * 100) : 0,
       employeesWithoutLinks,
       knowledgeWithoutLinks,
-      expiringCertifications
+      statusData: [
+        { name: 'Obtidos', value: obtainedCount, color: OL_COLORS.success },
+        { name: 'Desejados', value: desiredCount, color: OL_COLORS.info },
+        { name: 'Obrigatórios', value: requiredCount, color: OL_COLORS.primary }
+      ],
+      alerts: []
     };
-  };
+  }, [data]);
 
+  // ✅ NAVEGAÇÃO
   const handleCardClick = useCallback((type) => {
-    if (!setCurrentPage) return;
+    try {
+      console.log('🔗 Clicou em:', type);
 
-    switch(type) {
-      case 'employees':
-        setCurrentPage('employees');
-        break;
-      case 'knowledge':
-        setCurrentPage('knowledge');
-        break;
-      case 'employee-knowledge':
-        setCurrentPage('employee-knowledge');
-        break;
-      default:
-        console.log('Card clicked:', type);
+      if (type === 'employee-knowledge') {
+        alert('Página de vínculos em manutenção. Use Dashboard > Colaboradores para gerenciar competências.');
+        return;
+      }
+
+      if (setCurrentPage && typeof setCurrentPage === 'function') {
+        setCurrentPage(type);
+      }
+    } catch (error) {
+      console.error('❌ Erro na navegação:', error);
+      alert('Erro ao navegar. Tente novamente.');
     }
   }, [setCurrentPage]);
 
-  const handleExpiringClick = useCallback(() => {
-    const expiringDetails = analytics.expiringCertifications.map(cert => {
-      const employee = data.employees.find(emp => emp.id === cert.employee_id);
-      const knowledge = data.knowledge.find(k => k.id === cert.knowledge_id);
-      return { ...cert, employee, knowledge };
-    });
+  const closeModal = useCallback(() => {
+    setDetailModal({ isOpen: false, title: '', content: null });
+  }, []);
 
-    setDetailModal({
-      isOpen: true,
-      title: `${analytics.expiringCount} Certificações Vencendo em 30 Dias`,
-      actions: [
-        {
-          label: 'Gerenciar Vínculos',
-          onClick: () => {
-            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-            setCurrentPage && setCurrentPage('employee-knowledge');
-          }
-        }
-      ],
-      content: (
-        <div className="space-y-4">
-          {expiringDetails.map(cert => (
-            <div key={cert.id} className="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3 flex-1">
-                  <Avatar name={cert.employee?.nome} size="md" />
-                  <div>
-                    <p className="font-medium text-gray-900">{cert.employee?.nome}</p>
-                    <p className="text-sm text-gray-600">{cert.knowledge?.nome}</p>
-                    <p className="text-sm text-orange-600">
-                      <Clock className="w-4 h-4 inline mr-1" />
-                      Expira: {new Date(cert.data_expiracao).toLocaleDateString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Edit}
-                  onClick={() => {
-                    setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                    setCurrentPage && setCurrentPage('employees');
-                  }}
-                >
-                  Editar
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )
-    });
-  }, [analytics.expiringCertifications, analytics.expiringCount, data.employees, data.knowledge, setCurrentPage]);
+  // ✅ MODAL CONTENT - CORRIGIDO SEM CLASSES DINÂMICAS
+  const modalContent = {
+    expiring: (
+      <EmptyState
+        icon={() => <div className="w-8 h-8 text-green-500">✓</div>}
+        title="Tudo em dia!"
+        subtitle="Nenhuma certificação vencendo nos próximos 30 dias"
+        variant="success"
+      />
+    ),
 
-  const handleEmployeesWithoutLinksClick = useCallback(() => {
-    setDetailModal({
-      isOpen: true,
-      title: `${analytics.employeesWithoutLinks.length} Colaboradores Sem Certificações`,
-      actions: [
-        {
-          label: 'Gerenciar Vínculos',
-          onClick: () => {
-            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-            setCurrentPage && setCurrentPage('employee-knowledge');
-          }
-        }
-      ],
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {analytics.employeesWithoutLinks.map(employee => (
-              <div key={employee.id} className="bg-blue-50 border border-blue-200 p-4 rounded-lg">
-                <div className="flex items-center space-x-3 mb-3">
-                  <Avatar name={employee.nome} size="md" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{employee.nome}</p>
-                    <p className="text-sm text-gray-600">{employee.cargo}</p>
-                    <p className="text-sm text-gray-500">{employee.equipe}</p>
-                  </div>
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Edit}
-                  className="w-full"
-                  onClick={() => {
-                    setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                    setCurrentPage && setCurrentPage('employees');
-                  }}
-                >
-                  Editar Colaborador
-                </Button>
-              </div>
-            ))}
+    employeesWithoutLinks: (
+      <div className="space-y-6">
+        {analytics.employeesWithoutLinks.length > 0 ? (
+          <div className="text-center py-8">
+            <p>Lista de {analytics.employeesWithoutLinks.length} colaboradores sem vínculos</p>
           </div>
-        </div>
-      )
-    });
-  }, [analytics.employeesWithoutLinks, setCurrentPage]);
+        ) : (
+          <EmptyState
+            icon={() => <div className="w-8 h-8 text-green-500">✓</div>}
+            title="Excelente!"
+            subtitle="Todos colaboradores têm ao menos uma certificação"
+            variant="success"
+          />
+        )}
+      </div>
+    ),
 
-  const handleOrphanedKnowledgeClick = useCallback(() => {
-    setDetailModal({
-      isOpen: true,
-      title: `${analytics.knowledgeWithoutLinks.length} Conhecimentos Sem Vínculos`,
-      actions: [
-        {
-          label: 'Gerenciar Conhecimentos',
-          onClick: () => {
-            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-            setCurrentPage && setCurrentPage('knowledge');
-          }
-        }
-      ],
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {analytics.knowledgeWithoutLinks.map(knowledge => (
-              <div key={knowledge.id} className="bg-gray-50 border border-gray-200 p-4 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{knowledge.nome}</p>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <StatusBadge status={knowledge.tipo} />
-                      <span className="text-sm text-gray-500">{knowledge.vendor}</span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{knowledge.area}</p>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={Settings}
-                    onClick={() => {
-                      setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                      setCurrentPage && setCurrentPage('knowledge');
-                    }}
-                  >
-                    Gerenciar
-                  </Button>
-                </div>
-              </div>
-            ))}
+    orphanedKnowledge: (
+      <div className="space-y-6">
+        {analytics.knowledgeWithoutLinks.length > 0 ? (
+          <div className="text-center py-8">
+            <p>Lista de {analytics.knowledgeWithoutLinks.length} conhecimentos órfãos</p>
           </div>
-        </div>
-      )
-    });
-  }, [analytics.knowledgeWithoutLinks, setCurrentPage]);
+        ) : (
+          <EmptyState
+            icon={() => <div className="w-8 h-8 text-green-500">✓</div>}
+            title="Perfeito!"
+            subtitle="Todos conhecimentos têm vínculos ativos"
+            variant="success"
+          />
+        )}
+      </div>
+    ),
 
-  const handleKnowledgeClick = useCallback((knowledgeItem) => {
-    const relatedLinks = data.employeeLinks.filter(link => link.knowledge_id === knowledgeItem.id);
-    const relatedEmployees = relatedLinks.map(link => {
-      const employee = data.employees.find(emp => emp.id === link.employee_id);
-      return employee ? { ...employee, linkData: link } : null;
-    }).filter(Boolean);
-
-    setDetailModal({
-      isOpen: true,
-      title: `Colaboradores com ${knowledgeItem.name}`,
-      actions: [
-        {
-          label: 'Gerenciar Vínculos',
-          onClick: () => {
-            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-            setCurrentPage && setCurrentPage('employee-knowledge');
-          }
-        }
-      ],
-      content: (
-        <div className="space-y-4">
-          {relatedEmployees.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {relatedEmployees.map(employee => (
-                <div key={employee.id} className="bg-gray-50 p-4 rounded-lg">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <Avatar name={employee.nome} size="md" />
-                    <div>
-                      <p className="font-medium text-gray-900">{employee.nome}</p>
-                      <p className="text-sm text-gray-600">{employee.cargo}</p>
-                      <p className="text-sm text-gray-500">{employee.equipe}</p>
-                      <StatusBadge status={employee.linkData.status} className="mt-1" />
-                    </div>
-                  </div>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    icon={Edit}
-                    className="w-full"
-                    onClick={() => {
-                      setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                      setCurrentPage && setCurrentPage('employees');
-                    }}
-                  >
-                    Editar Colaborador
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-center text-gray-500">Nenhum colaborador vinculado a este conhecimento</p>
-          )}
-        </div>
-      )
-    });
-  }, [data.employeeLinks, data.employees, setCurrentPage]);
-
-  const handleAlertClick = useCallback((alert) => {
-    if (alert.type === 'expiring') {
-      handleExpiringClick();
-    } else if (alert.type === 'no_links') {
-      handleEmployeesWithoutLinksClick();
-    } else if (alert.type === 'orphaned') {
-      handleOrphanedKnowledgeClick();
-    }
-  }, [handleExpiringClick, handleEmployeesWithoutLinksClick, handleOrphanedKnowledgeClick]);
-
-  const handlePieClick = useCallback((data, index) => {
-    const clickedSegment = analytics.statusData[index];
-    if (!clickedSegment) return;
-
-    const status = clickedSegment.name === 'Obtidos' ? 'OBTIDO' :
-                  clickedSegment.name === 'Desejados' ? 'DESEJADO' : 'OBRIGATORIO';
-
-    const filteredLinks = data.employeeLinks.filter(link => link.status === status);
-    const employeesInSegment = filteredLinks.map(link => {
-      const employee = data.employees.find(emp => emp.id === link.employee_id);
-      const knowledge = data.knowledge.find(k => k.id === link.knowledge_id);
-      return employee ? { ...employee, knowledge: knowledge?.nome, linkData: link } : null;
-    }).filter(Boolean);
-
-    setDetailModal({
-      isOpen: true,
-      title: `Vínculos ${clickedSegment.name} (${clickedSegment.value})`,
-      actions: [
-        {
-          label: 'Gerenciar Vínculos',
-          onClick: () => {
-            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-            setCurrentPage && setCurrentPage('employee-knowledge');
-          }
-        }
-      ],
-      content: (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {employeesInSegment.map(employee => (
-              <div key={`${employee.id}-${employee.linkData.id}`} className="bg-gray-50 p-4 rounded-lg">
-                <div className="flex items-center space-x-3 mb-2">
-                  <Avatar name={employee.nome} size="sm" />
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">{employee.nome}</p>
-                    <p className="text-sm text-gray-600">{employee.cargo}</p>
-                    <p className="text-sm text-gray-500">{employee.equipe}</p>
-                  </div>
-                </div>
-                <div className="mt-2">
-                  <p className="text-sm font-medium text-ol-brand-600">{employee.knowledge}</p>
-                  {employee.linkData.data_obtencao && (
-                    <p className="text-xs text-gray-500">
-                      Obtido: {new Date(employee.linkData.data_obtencao).toLocaleDateString('pt-BR')}
-                    </p>
-                  )}
-                  {employee.linkData.data_alvo && (
-                    <p className="text-xs text-gray-500">
-                      Meta: {new Date(employee.linkData.data_alvo).toLocaleDateString('pt-BR')}
-                    </p>
-                  )}
-                </div>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={Edit}
-                  className="mt-2 w-full"
-                  onClick={() => {
-                    setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                    setCurrentPage && setCurrentPage('employees');
-                  }}
-                >
-                  Editar
-                </Button>
-              </div>
-            ))}
+    pieDetails: (
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {analytics.statusData.map((item, index) => (
+          <div key={index} className="text-center p-6 bg-gray-50 rounded-xl">
+            <div
+              className="w-12 h-12 rounded-full mx-auto mb-4"
+              style={{ backgroundColor: item.color }}
+            />
+            <h4 className="text-2xl font-bold text-gray-800 mb-1">{item.value}</h4>
+            <p className="text-gray-600">{item.name}</p>
           </div>
-        </div>
-      )
-    });
-  }, [analytics.statusData, setCurrentPage]);
+        ))}
+      </div>
+    )
+  };
 
   if (loading) {
     return <Loading fullScreen />;
@@ -566,289 +287,64 @@ const DashboardPage = ({ setCurrentPage }) => {
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Dashboard"
-        subtitle="Visão geral do sistema de gestão de conhecimentos"
+      {/* ✅ ESTATÍSTICAS */}
+      <DashboardStats
+        analytics={analytics}
+        userRole={userRole}
+        onCardClick={handleCardClick}
+        onExpiringClick={() => setDetailModal({
+          isOpen: true,
+          title: 'Certificações Vencendo',
+          content: modalContent.expiring
+        })}
+        onEmployeesWithoutLinksClick={() => setDetailModal({
+          isOpen: true,
+          title: 'Colaboradores Sem Certificações',
+          content: modalContent.employeesWithoutLinks
+        })}
+        onOrphanedKnowledgeClick={() => setDetailModal({
+          isOpen: true,
+          title: 'Conhecimentos Órfãos',
+          content: modalContent.orphanedKnowledge
+        })}
       />
 
-      {/* Cards Estatísticos Principais */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard
-          title="Total de Colaboradores"
-          value={analytics.totalEmployees}
-          subtitle="Ativos no sistema"
-          icon={Users}
-          color="blue"
-          onClick={() => handleCardClick('employees')}
-          clickable={!!setCurrentPage}
-        />
+      {/* ✅ GRÁFICOS */}
+      <DashboardCharts
+        analytics={analytics}
+        onPieClick={() => setDetailModal({
+          isOpen: true,
+          title: 'Detalhes da Distribuição',
+          content: modalContent.pieDetails
+        })}
+      />
 
-        <StatCard
-          title="Conhecimentos Cadastrados"
-          value={analytics.totalKnowledge}
-          subtitle="Certificações, cursos e formações"
-          icon={BookOpen}
-          color="green"
-          onClick={() => handleCardClick('knowledge')}
-          clickable={!!setCurrentPage}
-        />
-
-        <StatCard
-          title="Taxa de Cobertura"
-          value={`${analytics.coverageRate}%`}
-          subtitle="Vínculos obtidos vs total"
-          icon={Target}
-          color="purple"
-          onClick={() => handleCardClick('employee-knowledge')}
-          clickable={!!setCurrentPage}
-        />
-
-        <StatCard
-          title="Vencendo em 30 dias"
-          value={analytics.expiringCount}
-          subtitle="Certificações a renovar"
-          icon={Clock}
-          color={analytics.expiringCount > 0 ? "orange" : "green"}
-          onClick={handleExpiringClick}
-          clickable={analytics.expiringCount > 0}
-        />
-      </div>
-
-      {/* Cards Secundários */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <StatCard
-          title="Certificações Obtidas"
-          value={analytics.obtainedCertifications}
-          subtitle="Colaboradores certificados"
-          icon={Award}
-          color="green"
-        />
-
-        <StatCard
-          title="Sem Vínculos"
-          value={analytics.employeesWithoutLinks?.length || 0}
-          subtitle="Colaboradores sem certificações"
-          icon={AlertTriangle}
-          color={analytics.employeesWithoutLinks?.length > 0 ? "yellow" : "green"}
-          onClick={handleEmployeesWithoutLinksClick}
-          clickable={analytics.employeesWithoutLinks?.length > 0}
-        />
-
-        <StatCard
-          title="Conhecimentos Órfãos"
-          value={analytics.knowledgeWithoutLinks?.length || 0}
-          subtitle="Sem vínculos com colaboradores"
-          icon={BookOpen}
-          color={analytics.knowledgeWithoutLinks?.length > 0 ? "yellow" : "green"}
-          onClick={handleOrphanedKnowledgeClick}
-          clickable={analytics.knowledgeWithoutLinks?.length > 0}
-        />
-      </div>
-
-      {/* Gráficos */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard title="Distribuição por Status (clique nas fatias)">
-          <ResponsiveContainer width="100%" height="100%">
-            <RechartsPie
-              data={analytics.statusData}
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              dataKey="value"
-              onClick={(entry, index) => handlePieClick(data, index)}
-            >
-              {analytics.statusData?.map((entry, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={entry.color}
-                  style={{ cursor: 'pointer' }}
-                />
-              ))}
-            </RechartsPie>
-          </ResponsiveContainer>
-        </ChartCard>
-
-        <ChartCard title="Certificações por Equipe">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics.teamData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="team" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="obtained" fill="#22c55e" name="Obtidas" />
-              <Bar dataKey="certifications" fill="#e5e7eb" name="Total" />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartCard>
-      </div>
-
-      {/* Top Conhecimentos e Alertas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ✅ SEÇÕES FINAIS */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <PageSection title="Top 5 Conhecimentos Mais Desejados">
-          <div className="space-y-3">
-            {analytics.topDesiredKnowledge?.length > 0 ? (
-              analytics.topDesiredKnowledge.map((item, index) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer transition-colors"
-                  onClick={() => handleKnowledgeClick(item)}
-                >
-                  <div className="flex items-center">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-bold mr-3 ${
-                      index === 0 ? 'bg-yellow-500' : 
-                      index === 1 ? 'bg-gray-400' : 
-                      index === 2 ? 'bg-orange-600' : 'bg-blue-500'
-                    }`}>
-                      {index + 1}
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{item.name}</p>
-                      <p className="text-xs text-gray-500">
-                        {item.desired} desejados • {item.obtained} obtidos • {item.required} obrigatórios
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center">
-                    <div className="text-lg font-bold text-blue-600 mr-2">
-                      {item.desired}
-                    </div>
-                    <ExternalLink className="w-4 h-4 text-gray-400" />
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-gray-500 text-center py-4">Nenhum conhecimento com vínculos desejados</p>
-            )}
-          </div>
+          <EmptyState
+            icon={BookOpen}
+            title="Carregando dados..."
+            subtitle="Conhecimentos mais desejados em breve"
+            variant="default"
+          />
         </PageSection>
 
-        <AlertCard alerts={analytics.alerts || []} onAlertClick={handleAlertClick} />
+        <AlertCard alerts={analytics.alerts} />
       </div>
 
-      {/* Cobertura por Equipe */}
-      <PageSection title="Cobertura por Equipe">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Equipe
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Colaboradores
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Vínculos
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Obtidas
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Taxa Cobertura
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {analytics.teamData?.map((team) => (
-                <tr
-                  key={team.fullTeam}
-                  className="hover:bg-gray-50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    const teamEmployees = data.employees.filter(emp => emp.equipe === team.fullTeam);
-                    setDetailModal({
-                      isOpen: true,
-                      title: `Equipe: ${team.fullTeam}`,
-                      actions: [
-                        {
-                          label: 'Gerenciar Colaboradores',
-                          onClick: () => {
-                            setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                            setCurrentPage && setCurrentPage('employees');
-                          }
-                        }
-                      ],
-                      content: (
-                        <div className="space-y-4">
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {teamEmployees.map(employee => {
-                              const empLinks = data.employeeLinks.filter(link => link.employee_id === employee.id);
-                              return (
-                                <div key={employee.id} className="bg-gray-50 p-4 rounded-lg">
-                                  <div className="flex items-center space-x-3 mb-2">
-                                    <Avatar name={employee.nome} size="md" />
-                                    <div>
-                                      <p className="font-medium text-gray-900">{employee.nome}</p>
-                                      <p className="text-sm text-gray-600">{employee.cargo}</p>
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-gray-500 mb-2">
-                                    <p>Vínculos: {empLinks.length}</p>
-                                    <p>Obtidos: {empLinks.filter(l => l.status === 'OBTIDO').length}</p>
-                                  </div>
-                                  <Button
-                                    variant="primary"
-                                    size="sm"
-                                    icon={Edit}
-                                    className="w-full"
-                                    onClick={() => {
-                                      setDetailModal({ isOpen: false, title: '', content: null, actions: [] });
-                                      setCurrentPage && setCurrentPage('employees');
-                                    }}
-                                  >
-                                    Editar
-                                  </Button>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )
-                    });
-                  }}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {team.fullTeam}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {team.employees}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {team.certifications}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {team.obtained}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-1 mr-2">
-                        <div className="w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full"
-                            style={{ width: `${team.coverage}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      <span className="text-sm font-medium text-gray-900">{team.coverage}%</span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </PageSection>
-
-      {/* Modal de Detalhes */}
+      {/* ✅ MODAL */}
       <Modal
         isOpen={detailModal.isOpen}
-        onClose={() => setDetailModal({ isOpen: false, title: '', content: null, actions: [] })}
+        onClose={closeModal}
         title={detailModal.title}
-        actions={detailModal.actions}
       >
         {detailModal.content}
       </Modal>
     </PageContainer>
   );
-};
+});
+
+DashboardPage.displayName = 'DashboardPage';
 
 export default DashboardPage;

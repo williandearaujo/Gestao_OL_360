@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import TabButton from '../components/TabButton';
-import { teamsService } from '../../../services/teamsService';
-import { managersService } from '../../../services/managersService';
+
+// ✅ FUNÇÃO PARA CONVERTER ENDEREÇO PARA STRING JSON
+const stringifyEndereco = (enderecoObj) => {
+  try {
+    if (!enderecoObj || typeof enderecoObj !== 'object') return '';
+    return JSON.stringify(enderecoObj);
+  } catch (error) {
+    console.error('❌ Erro ao converter endereço para JSON:', error);
+    return '';
+  }
+};
 
 const AddEmployeeModal = ({
   isOpen,
@@ -10,37 +19,39 @@ const AddEmployeeModal = ({
   setNewEmployee,
   onAddEmployee,
   onPhotoUpload,
-  employees,
-  useAPI = false  // ✅ ADICIONAR ESTA PROP
+  useAPI = true,
+  adminData,
+  adminLoading
 }) => {
   const [activeTab, setActiveTab] = useState('dados');
 
-  // ✅ ESTADOS PARA DROPDOWNS DINÂMICOS
-  const [teams, setTeams] = useState([]);
-  const [managers, setManagers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  // ✅ DADOS VINDOS DO useAdminData COM PROTEÇÃO
+  const { areas = [], teams = [], managers = [] } = adminData || {};
+  const loading = adminLoading || false;
 
-  // ✅ CARREGAR DADOS QUANDO MODAL ABRE
+  // ✅ RESETAR ABA QUANDO MODAL ABRE
   useEffect(() => {
-    if (isOpen && useAPI) {
-      loadTeamsAndManagers();
+    if (isOpen) {
+      setActiveTab('dados');
     }
-  }, [isOpen, useAPI]);
+  }, [isOpen]);
 
-  // ✅ FUNÇÃO PARA CARREGAR DADOS DA API
-  const loadTeamsAndManagers = async () => {
-    setLoading(true);
+  // ✅ FILTRAR EQUIPES POR ÁREA SELECIONADA COM PROTEÇÃO
+  const availableTeams = teams.filter(team => {
     try {
-      const [teamsData, managersData] = await Promise.all([
-        teamsService.getAll(),
-        managersService.getAll()
-      ]);
-      setTeams(teamsData);
-      setManagers(managersData);
+      return !newEmployee?.area_id || team.area_id === newEmployee.area_id;
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-    } finally {
-      setLoading(false);
+      console.error('❌ Erro ao filtrar equipes:', error);
+      return [];
+    }
+  });
+
+  // ✅ FUNÇÃO DE PROTEÇÃO PARA UPDATES
+  const safeSetNewEmployee = (updateFn) => {
+    try {
+      setNewEmployee(updateFn);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar funcionário:', error);
     }
   };
 
@@ -51,10 +62,12 @@ const AddEmployeeModal = ({
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-ol-brand-500">Adicionar Novo Colaborador</h3>
+            <h3 className="text-xl font-semibold text-red-600">
+              Novo Colaborador
+            </h3>
             <button
               onClick={onClose}
-              className="text-ol-gray-400 hover:text-ol-gray-600"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -62,14 +75,17 @@ const AddEmployeeModal = ({
             </button>
           </div>
 
-          {/* ✅ INDICADOR DE MODO */}
+          {/* ✅ INDICADOR DE MODE COM DADOS ADMIN */}
           {useAPI && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                 <span className="text-sm text-green-700 font-medium">
-                  Modo API - Dropdowns com dados reais
+                  Modo API - Cadastrando com dados reais
                   {loading && " (Carregando...)"}
+                </span>
+                <span className="text-xs text-green-600 ml-2">
+                  ({areas.length} áreas, {teams.length} equipes, {managers.length} gerentes)
                 </span>
               </div>
             </div>
@@ -83,16 +99,16 @@ const AddEmployeeModal = ({
           </div>
 
           <form onSubmit={onAddEmployee} className="space-y-6">
-            {/* ABA DADOS BÁSICOS - MANTIDA IGUAL */}
+            {/* ABA DADOS BÁSICOS */}
             {activeTab === 'dados' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Upload de foto */}
                 <div className="col-span-full flex items-center space-x-4">
-                  <div className="w-16 h-16 bg-ol-brand-100 rounded-full flex items-center justify-center overflow-hidden">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
                     {newEmployee.avatar ? (
                       <img src={newEmployee.avatar} alt="Preview" className="w-full h-full object-cover" />
                     ) : (
-                      <svg className="w-8 h-8 text-ol-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     )}
@@ -101,94 +117,90 @@ const AddEmployeeModal = ({
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => onPhotoUpload(e)}
+                      onChange={(e) => onPhotoUpload(e, false)}
                       className="hidden"
-                      id="photo-upload"
+                      id="photo-upload-add"
                     />
                     <label
-                      htmlFor="photo-upload"
-                      className="cursor-pointer bg-ol-brand-100 text-ol-brand-700 px-4 py-2 rounded-md hover:bg-ol-brand-200 text-sm"
+                      htmlFor="photo-upload-add"
+                      className="cursor-pointer bg-gray-100 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-200 text-sm transition-colors"
                     >
-                      Escolher Foto
+                      Adicionar Foto
                     </label>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Nome Completo *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nome Completo *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.nome}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, nome: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Nome completo do colaborador"
+                    value={newEmployee.nome || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, nome: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Email *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
                   <input
                     type="email"
                     required
-                    value={newEmployee.email}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="email@oltecnologia.com.br"
+                    value={newEmployee.email || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Telefone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
                   <input
                     type="tel"
-                    value={newEmployee.telefone}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, telefone: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.telefone || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, telefone: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder="(11) 99999-9999"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">CPF *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CPF *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.cpf}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, cpf: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="000.000.000-00"
+                    value={newEmployee.cpf || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, cpf: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">RG</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RG</label>
                   <input
                     type="text"
-                    value={newEmployee.rg}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, rg: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="00.000.000-0"
+                    value={newEmployee.rg || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, rg: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Data de Nascimento *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Nascimento *</label>
                   <input
                     type="date"
                     required
-                    value={newEmployee.data_nascimento}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, data_nascimento: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.data_nascimento || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, data_nascimento: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Estado Civil</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado Civil</label>
                   <select
-                    value={newEmployee.estado_civil}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, estado_civil: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.estado_civil || 'SOLTEIRO'}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, estado_civil: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="SOLTEIRO">Solteiro(a)</option>
                     <option value="CASADO">Casado(a)</option>
@@ -199,93 +211,148 @@ const AddEmployeeModal = ({
               </div>
             )}
 
-            {/* ABA ENDEREÇO - MANTIDA IGUAL */}
+            {/* ✅ ABA ENDEREÇO - PARA CRIAÇÃO */}
             {activeTab === 'endereco' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Rua *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rua *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.endereco.rua}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, rua: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Nome da rua"
+                    value={newEmployee.endereco_rua || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_rua: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          rua: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          rua: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Número *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Número *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.endereco.numero}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, numero: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="123"
+                    value={newEmployee.endereco_numero || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_numero: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          numero: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          numero: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Complemento</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Complemento</label>
                   <input
                     type="text"
-                    value={newEmployee.endereco.complemento}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, complemento: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Apto, bloco, etc."
+                    value={newEmployee.endereco_complemento || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_complemento: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          complemento: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          complemento: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Bairro *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bairro *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.endereco.bairro}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, bairro: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Nome do bairro"
+                    value={newEmployee.endereco_bairro || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_bairro: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          bairro: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          bairro: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Cidade *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cidade *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.endereco.cidade}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, cidade: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="São Paulo"
+                    value={newEmployee.endereco_cidade || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_cidade: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          cidade: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          cidade: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Estado *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
                   <select
                     required
-                    value={newEmployee.endereco.estado}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, estado: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.endereco_estado || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_estado: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          estado: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          estado: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="">Selecione o estado</option>
                     <option value="SP">São Paulo</option>
@@ -298,91 +365,110 @@ const AddEmployeeModal = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">CEP *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">CEP *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.endereco.cep}
-                    onChange={(e) => setNewEmployee(prev => ({
-                      ...prev,
-                      endereco: { ...prev.endereco, cep: e.target.value }
-                    }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="00000-000"
+                    value={newEmployee.endereco_cep || ''}
+                    onChange={(e) => {
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        endereco_cep: e.target.value,
+                        endereco: stringifyEndereco({
+                          ...prev.endereco_obj,
+                          cep: e.target.value
+                        }),
+                        endereco_obj: {
+                          ...prev.endereco_obj,
+                          cep: e.target.value
+                        }
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
               </div>
             )}
 
-            {/* ✅ ABA PROFISSIONAL - MODIFICADA APENAS OS DROPDOWNS */}
+            {/* ✅ ABA PROFISSIONAL */}
             {activeTab === 'profissional' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Cargo *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Cargo *</label>
                   <input
                     type="text"
                     required
-                    value={newEmployee.cargo}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, cargo: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="Analista, Coordenador, etc."
+                    value={newEmployee.cargo || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, cargo: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
-                {/* 🔥 DROPDOWN DINÂMICO DE EQUIPES */}
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Equipe *
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Área *
                     {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
                   </label>
-
-                  {useAPI ? (
-                    // Dropdown dinâmico
-                    <select
-                      required
-                      value={newEmployee.team_id || ''}
-                      onChange={(e) => {
-                        const selectedTeam = teams.find(t => t.id == e.target.value);
-                        setNewEmployee(prev => ({
-                          ...prev,
-                          team_id: e.target.value ? parseInt(e.target.value) : null,
-                          equipe: selectedTeam ? selectedTeam.nome : ''
-                        }));
-                      }}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                      disabled={loading}
-                    >
-                      <option value="">Selecione uma equipe</option>
-                      {teams.map(team => (
-                        <option key={team.id} value={team.id}>
-                          {team.nome}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    // Dropdown estático original
-                    <select
-                      required
-                      value={newEmployee.equipe}
-                      onChange={(e) => setNewEmployee(prev => ({ ...prev, equipe: e.target.value }))}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    >
-                      <option value="">Selecione a equipe</option>
-                      <option value="Red Team">Red Team</option>
-                      <option value="Blue Team">Blue Team</option>
-                      <option value="SOC Team">SOC Team</option>
-                      <option value="Compliance Team">Compliance Team</option>
-                    </select>
-                  )}
+                  <select
+                    required
+                    value={newEmployee.area_id || ''}
+                    onChange={(e) => {
+                      const areaId = e.target.value ? parseInt(e.target.value) : null;
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        area_id: areaId,
+                        team_id: null
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    disabled={loading}
+                  >
+                    <option value="">Selecione uma área</option>
+                    {areas.map(area => (
+                      <option key={area.id} value={area.id}>
+                        {area.nome} ({area.sigla})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Nível *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Equipe *
+                    {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
+                  </label>
                   <select
                     required
-                    value={newEmployee.nivel}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, nivel: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.team_id || ''}
+                    onChange={(e) => {
+                      const selectedTeam = availableTeams.find(t => t.id == e.target.value);
+                      safeSetNewEmployee(prev => ({
+                        ...prev,
+                        team_id: e.target.value ? parseInt(e.target.value) : null,
+                        equipe: selectedTeam ? selectedTeam.nome : ''
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    disabled={loading || !newEmployee.area_id}
+                  >
+                    <option value="">
+                      {!newEmployee.area_id ? 'Selecione uma área primeiro' : 'Selecione uma equipe'}
+                    </option>
+                    {availableTeams.map(team => (
+                      <option key={team.id} value={team.id}>
+                        {team.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nível *</label>
+                  <select
+                    required
+                    value={newEmployee.nivel || 'JUNIOR'}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, nivel: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="ESTAGIARIO">Estagiário</option>
                     <option value="JUNIOR">Júnior</option>
@@ -394,136 +480,88 @@ const AddEmployeeModal = ({
                   </select>
                 </div>
 
-                {/* 🔥 DROPDOWN DINÂMICO DE GERENTES */}
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Gerente Responsável
                     {loading && <span className="text-xs text-gray-500 ml-1">(Carregando...)</span>}
                   </label>
-
-                  {useAPI ? (
-                    // Dropdown dinâmico
-                    <select
-                      value={newEmployee.manager_id || ''}
-                      onChange={(e) => setNewEmployee(prev => ({
-                        ...prev,
-                        manager_id: e.target.value ? parseInt(e.target.value) : null
-                      }))}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                      disabled={loading}
-                    >
-                      <option value="">Selecione um gerente</option>
-                      {managers.map(manager => (
-                        <option key={manager.id} value={manager.id}>
-                          {manager.nome} ({manager.cargo})
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    // Dropdown estático original
-                    <select
-                      value={newEmployee.manager_id || ''}
-                      onChange={(e) => setNewEmployee(prev => ({
-                        ...prev,
-                        manager_id: e.target.value ? parseInt(e.target.value) : null
-                      }))}
-                      className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    >
-                      <option value="">Nenhum gerente</option>
-                      {employees && employees
-                        .filter(emp => ['GERENTE', 'DIRETOR', 'COORDENADOR'].includes(emp.nivel))
-                        .map(manager => (
-                          <option key={manager.id} value={manager.id}>
-                            {manager.nome} ({manager.cargo})
-                          </option>
-                        ))
-                      }
-                    </select>
-                  )}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Selecione o gerente direto deste colaborador
-                  </p>
+                  <select
+                    value={newEmployee.manager_id || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({
+                      ...prev,
+                      manager_id: e.target.value ? parseInt(e.target.value) : null
+                    }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    disabled={loading}
+                  >
+                    <option value="">Selecione um gerente</option>
+                    {managers.map(manager => (
+                      <option key={manager.id} value={manager.id}>
+                        {manager.nome} ({manager.cargo})
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                {/* Resto dos campos mantidos iguais */}
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">
-                    Tipo de Acesso
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Acesso</label>
                   <select
                     value={newEmployee.access_level || 'COLABORADOR'}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, access_level: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, access_level: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   >
                     <option value="COLABORADOR">Colaborador</option>
                     <option value="GESTOR">Gestor</option>
                     <option value="RH">RH</option>
                     <option value="ADMIN">Administrador</option>
                   </select>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Define o nível de acesso na plataforma
-                  </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Status</label>
-                  <select
-                    value={newEmployee.status}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, status: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                  >
-                    <option value="ATIVO">Ativo</option>
-                    <option value="FERIAS">Férias</option>
-                    <option value="LICENCA">Licença</option>
-                    <option value="INATIVO">Inativo</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Data de Admissão *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Data de Admissão *</label>
                   <input
                     type="date"
                     required
-                    value={newEmployee.data_admissao}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, data_admissao: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    value={newEmployee.data_admissao || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, data_admissao: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Salário</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Salário</label>
                   <input
                     type="number"
                     step="0.01"
-                    value={newEmployee.salario}
-                    onChange={(e) => setNewEmployee(prev => ({ ...prev, salario: e.target.value }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
-                    placeholder="5000.00"
+                    value={newEmployee.salario || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({ ...prev, salario: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   />
                 </div>
 
                 <div className="col-span-full">
-                  <label className="block text-sm font-medium text-ol-gray-700 mb-1">Competências</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Competências</label>
                   <input
                     type="text"
-                    placeholder="Digite competências separadas por vírgula"
-                    onChange={(e) => setNewEmployee(prev => ({
+                    value={Array.isArray(newEmployee.competencias) ? newEmployee.competencias.join(', ') : newEmployee.competencias || ''}
+                    onChange={(e) => safeSetNewEmployee(prev => ({
                       ...prev,
                       competencias: e.target.value.split(',').map(c => c.trim()).filter(c => c)
                     }))}
-                    className="w-full px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    placeholder="Competências separadas por vírgula"
                   />
-                  <p className="text-xs text-ol-gray-500 mt-1">Ex: Penetration Testing, OSINT, Social Engineering</p>
+                  <p className="text-xs text-gray-500 mt-1">Ex: Penetration Testing, OSINT, Social Engineering</p>
                 </div>
               </div>
             )}
 
-            {/* Botões de ação - MANTIDOS IGUAIS */}
+            {/* ✅ BOTÕES DE AÇÃO */}
             <div className="flex justify-between pt-6 border-t">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-ol-gray-600 border border-ol-gray-300 rounded-md hover:bg-ol-gray-50"
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
               >
                 Cancelar
               </button>
@@ -535,30 +573,32 @@ const AddEmployeeModal = ({
                       if (activeTab === 'endereco') setActiveTab('dados');
                       if (activeTab === 'profissional') setActiveTab('endereco');
                     }}
-                    className="px-4 py-2 text-ol-brand-600 border border-ol-brand-300 rounded-md hover:bg-ol-brand-50"
+                    className="px-4 py-2 text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
                   >
                     Anterior
                   </button>
                 )}
-                {activeTab !== 'profissional' ? (
+
+                {activeTab !== 'profissional' && (
                   <button
                     type="button"
                     onClick={() => {
                       if (activeTab === 'dados') setActiveTab('endereco');
                       if (activeTab === 'endereco') setActiveTab('profissional');
                     }}
-                    className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600"
+                    className="px-4 py-2 text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
                   >
                     Próximo
                   </button>
-                ) : (
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600"
-                  >
-                    Salvar Colaborador
-                  </button>
                 )}
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors disabled:opacity-50"
+                  disabled={loading}
+                >
+                  {loading ? 'Criando...' : 'Criar Colaborador'}
+                </button>
               </div>
             </div>
           </form>

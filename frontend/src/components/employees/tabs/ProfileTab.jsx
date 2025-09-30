@@ -45,14 +45,14 @@ const ProfileTab = ({ employee }) => {
         <div>
           <h4 className="font-semibold text-ol-brand-500 mb-3">Endereço</h4>
           <div className="text-sm">
-            <p className="font-medium">{employee.endereco.rua}, {employee.endereco.numero}</p>
-            {employee.endereco.complemento && (
-              <p className="text-ol-gray-600">{employee.endereco.complemento}</p>
+            <p className="font-medium">{employee.endereco?.rua}, {employee.endereco?.numero}</p>
+            {employee.endereco?.complemento && (
+              <p className="text-ol-gray-600">{employee.endereco?.complemento}</p>
             )}
             <p className="text-ol-gray-600">
-              {employee.endereco.bairro}, {employee.endereco.cidade} - {employee.endereco.estado}
+              {employee.endereco?.bairro}, {employee.endereco?.cidade} - {employee.endereco?.estado}
             </p>
-            <p className="text-ol-gray-600">CEP: {employee.endereco.cep}</p>
+            <p className="text-ol-gray-600">CEP: {employee.endereco?.cep}</p>
           </div>
         </div>
       </div>

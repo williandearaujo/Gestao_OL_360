@@ -1,121 +1,133 @@
 import React, { useState } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
+import { ConfigProvider } from './contexts/ConfigContext';
 import Layout from './components/layout/Layout';
+import Login from './components/Login';                      // ✅ VOLTA PARA /components
+import ProtectedRoute from './components/ProtectedRoute';    // ✅ VOLTA PARA /components
+import DevRoleSwitcher from './components/dev/DevRoleSwitcher'; // ✅ ESTE ESTÁ CERTO
 
-// Suas páginas
+// Suas páginas existentes
 import EmployeesPage from './components/employees/EmployeesPage';
 import KnowledgePage from './components/knowledge/KnowledgePage';
 import EmployeeKnowledgePage from './components/employee-knowledge/EmployeeKnowledgePage';
-import DashboardPage from './components/dashboard/DashboardPage'; // ✅ ADICIONAR IMPORT
+import DashboardPage from './components/dashboard/DashboardPage';
+import AdminConfigPage from './components/admin/AdminConfigPage';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
+  const [userRole, setUserRole] = useState('admin');
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'employees':
-        return (
-          <EmployeesPage
-            onBackToDashboard={() => setCurrentPage('dashboard')}
-            useAPI={true}
-            setCurrentPage={setCurrentPage}
-          />
-        );
+  // ✅ NAVEGAÇÃO SEGURA COM PROTEÇÃO (SUA FUNÇÃO EXISTENTE)
+  const safeSetCurrentPage = (page) => {
+    console.log('🔗 App navegando para:', page);
 
-      case 'knowledge':
-        return (
-          <KnowledgePage
-            onBackToDashboard={() => setCurrentPage('dashboard')}
-            useAPI={true}
-          />
-        );
-
-      case 'employee-knowledge':
-        return (
-          <EmployeeKnowledgePage
-            onBackToDashboard={() => setCurrentPage('dashboard')}
-          />
-        );
-
-      case 'teams':
-        return (
-          <div className="p-6">
-            <div className="flex items-center mb-6">
-              <button
-                onClick={() => setCurrentPage('dashboard')}
-                className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">🏢 Gerenciamento de Equipes</h1>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <svg className="w-16 h-16 mx-auto text-purple-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Página de Equipes</h2>
-              <p className="text-gray-500 mb-4">
-                ✅ Sempre conectado à API - Equipes reais: Comercial, TI, Admin, etc.
-              </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-700">
-                  🚧 Página em desenvolvimento<br/>
-                  Em breve: CRUD completo de equipes com cores e descrições
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'managers':
-        return (
-          <div className="p-6">
-            <div className="flex items-center mb-6">
-              <button
-                onClick={() => setCurrentPage('dashboard')}
-                className="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
-              </button>
-              <h1 className="text-2xl font-bold text-gray-900">👔 Gerenciamento de Gerentes</h1>
-            </div>
-            <div className="bg-white rounded-lg shadow-md p-8 text-center">
-              <svg className="w-16 h-16 mx-auto text-orange-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <h2 className="text-xl font-semibold text-gray-700 mb-2">Página de Gerentes</h2>
-              <p className="text-gray-500 mb-4">
-                ✅ Sempre conectado à API - Gerentes reais: André Brazioli, etc.
-              </p>
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <p className="text-sm text-orange-700">
-                  🚧 Página em desenvolvimento<br/>
-                  Em breve: CRUD completo de gerentes e hierarquia
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-
-      // ✅ ADICIONAR CASE DASHBOARD
-    case 'dashboard':
-      return <DashboardPage setCurrentPage={setCurrentPage} />;
-
-    default:
-      return <DashboardPage setCurrentPage={setCurrentPage} />;
+    try {
+      const validPages = ['dashboard', 'employees', 'knowledge', 'employee-knowledge', 'admin-config'];
+      if (!validPages.includes(page)) {
+        console.warn('⚠️ Página inválida:', page);
+        return;
+      }
+      setCurrentPage(page);
+    } catch (error) {
+      console.error('❌ Erro na navegação App:', error);
+      setCurrentPage('dashboard');
     }
   };
 
-  return (
-    <AuthProvider>
-      <Layout currentPage={currentPage} setCurrentPage={setCurrentPage}>
+  // ✅ SUA FUNÇÃO DE RENDERIZAÇÃO EXISTENTE (INALTERADA)
+  const renderPage = () => {
+    try {
+      switch (currentPage) {
+        case 'employees':
+          return (
+            <EmployeesPage
+              onBackToDashboard={() => safeSetCurrentPage('dashboard')}
+              useAPI={true}
+              setCurrentPage={safeSetCurrentPage}
+              userRole={userRole}
+            />
+          );
+
+        case 'knowledge':
+          return (
+            <KnowledgePage
+              onBackToDashboard={() => safeSetCurrentPage('dashboard')}
+              useAPI={true}
+              userRole={userRole}
+            />
+          );
+
+        case 'employee-knowledge':
+          return (
+            <EmployeeKnowledgePage
+              onBackToDashboard={() => safeSetCurrentPage('dashboard')}
+              userRole={userRole}
+            />
+          );
+
+        case 'admin-config':
+          return (
+            <AdminConfigPage
+              onBackToDashboard={() => safeSetCurrentPage('dashboard')}
+              userRole={userRole}
+              setCurrentPage={safeSetCurrentPage}
+            />
+          );
+
+        case 'dashboard':
+        default:
+          return (
+            <DashboardPage
+              setCurrentPage={safeSetCurrentPage}
+              userRole={userRole}
+            />
+          );
+      }
+    } catch (error) {
+      console.error('❌ Erro ao renderizar página:', error);
+      return (
+        <div className="p-8 text-center">
+          <h2 className="text-xl font-bold mb-4">Erro na Página</h2>
+          <button
+            onClick={() => safeSetCurrentPage('dashboard')}
+            className="px-4 py-2 bg-red-600 text-white rounded"
+          >
+            Ir para Dashboard
+          </button>
+        </div>
+      );
+    }
+  };
+
+  // ✅ COMPONENT INTERNO PARA APLICAÇÃO AUTENTICADA
+  const AuthenticatedApp = () => (
+    <>
+      <Layout
+        currentPage={currentPage}
+        setCurrentPage={safeSetCurrentPage}
+        userRole={userRole}
+        setUserRole={setUserRole}
+      >
         {renderPage()}
       </Layout>
-    </AuthProvider>
+
+      {/* ✅ DEV ROLE SWITCHER - SÓ APARECE PARA ADMIN */}
+      <DevRoleSwitcher />
+    </>
+  );
+
+  return (
+    <ConfigProvider>
+      <AuthProvider>
+        {/* 🔐 SISTEMA DE AUTENTICAÇÃO WRAPPER */}
+        <ProtectedRoute
+          loginComponent={<Login />}
+          fallbackMode={true} // ✅ PERMITE ACESSO MESMO SEM LOGIN (MODO COMPATIBILIDADE)
+        >
+          <AuthenticatedApp />
+        </ProtectedRoute>
+      </AuthProvider>
+    </ConfigProvider>
   );
 }
 

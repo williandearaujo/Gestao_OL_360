@@ -1,172 +1,300 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
+import { Award, Plus, FileText, Calendar, AlertCircle, CheckCircle2, Clock } from 'lucide-react';
 
-const KnowledgeTab = ({ 
+const KnowledgeTab = ({
   employee,
-  employeeKnowledge = [], // ✅ Proteção default
+  employeeKnowledge = [],
   setEmployeeKnowledge,
-  knowledgeCatalog = [], // ✅ Proteção default
+  knowledgeCatalog = [],
   onShowAddKnowledgeModal,
   onFileUpload
 }) => {
-  // ✅ Proteção contra dados undefined
-  if (!employee || !Array.isArray(employeeKnowledge) || !Array.isArray(knowledgeCatalog)) {
-    return (
-      <div className="text-center py-8 text-ol-gray-500">
-        <p>Erro ao carregar conhecimentos do colaborador</p>
-      </div>
-    );
-  }
+  const [filter, setFilter] = useState('TODOS');
 
-  const vinculosDoColab = employeeKnowledge.filter(v => v.employee_id === employee.id);
+  // ✅ FILTRAR CONHECIMENTOS DO COLABORADOR
+  const employeeLinks = useMemo(() => {
+    console.log('🔍 KnowledgeTab - employeeKnowledge:', employeeKnowledge);
+    console.log('🔍 KnowledgeTab - knowledgeCatalog:', knowledgeCatalog);
+    console.log('🔍 KnowledgeTab - employee.id:', employee?.id);
 
-  const handleDeleteKnowledge = (vinculoId) => {
-    if (window.confirm('Remover este vínculo de conhecimento?')) {
-      setEmployeeKnowledge(prev => prev.filter(v => v.id !== vinculoId));
+    if (!employeeKnowledge || !Array.isArray(employeeKnowledge)) {
+      console.log('❌ employeeKnowledge não é um array válido');
+      return [];
+    }
+
+    return employeeKnowledge.filter(link => {
+      const matches = link.employee_id === employee.id;
+      if (matches) {
+        console.log('✅ Link encontrado para employee:', link);
+      }
+      return matches;
+    });
+  }, [employeeKnowledge, employee?.id]);
+
+  // ✅ APLICAR FILTROS
+  const filteredLinks = useMemo(() => {
+    if (filter === 'TODOS') return employeeLinks;
+    return employeeLinks.filter(link => link.status === filter);
+  }, [employeeLinks, filter]);
+
+  // ✅ FUNÇÃO PARA BUSCAR DETALHES DO CONHECIMENTO
+  const getKnowledgeDetails = (link) => {
+    if (!knowledgeCatalog || knowledgeCatalog.length === 0) {
+      console.log('❌ knowledgeCatalog está vazio');
+      return null;
+    }
+
+    const knowledgeId = link.learning_item_id;
+    const item = knowledgeCatalog.find(k => k.id === knowledgeId);
+
+    if (!item) {
+      console.log(`❌ Conhecimento não encontrado para ID: ${knowledgeId}`);
+    }
+
+    return item || null;
+  };
+
+  // ✅ FUNÇÃO PARA ABRIR MODAL DE ADICIONAR CONHECIMENTO
+  const handleAddKnowledge = () => {
+    console.log('🎯 Abrindo modal para adicionar conhecimento ao employee:', employee.nome);
+    if (onShowAddKnowledgeModal) {
+      onShowAddKnowledgeModal(employee);
+    } else {
+      console.log('❌ onShowAddKnowledgeModal não foi fornecido');
     }
   };
 
-  const viewEvidence = (vinculo) => {
-    if (!vinculo.anexo_path) {
-      alert('Nenhum arquivo anexado para este vínculo.');
-      return;
+  // ✅ FORMATADORES
+  const formatDate = (date) => {
+    if (!date) return 'Não definido';
+    try {
+      return new Date(date).toLocaleDateString('pt-BR');
+    } catch {
+      return 'Data inválida';
     }
+  };
 
-    const newWindow = window.open();
-    if (newWindow) {
-      newWindow.document.write(`
-        <html><head><title>Evidência - ${vinculo.learning_item_id}</title></head>
-        <body style="margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#f3f4f6;">
-          ${vinculo.anexo_path.includes('data:application/pdf') 
-            ? `<embed src="${vinculo.anexo_path}" width="100%" height="100%" type="application/pdf" />`
-            : `<img src="${vinculo.anexo_path}" style="max-width:100%;max-height:100%;object-fit:contain;" alt="Evidência" />`
-          }
-        </body></html>
-      `);
+  const getStatusColor = (status) => {
+    const colors = {
+      'OBTIDO': 'bg-green-100 text-green-800',
+      'OBRIGATORIO': 'bg-red-100 text-red-800',
+      'DESEJADO': 'bg-blue-100 text-blue-800',
+      'EXPIRANDO': 'bg-yellow-100 text-yellow-800',
+      'EXPIRADO': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getPriorityColor = (prioridade) => {
+    const colors = {
+      'ALTA': 'bg-red-100 text-red-800',
+      'MEDIA': 'bg-yellow-100 text-yellow-800',
+      'BAIXA': 'bg-green-100 text-green-800'
+    };
+    return colors[prioridade] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'OBTIDO':
+        return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+      case 'OBRIGATORIO':
+        return <AlertCircle className="w-4 h-4 text-red-600" />;
+      case 'DESEJADO':
+        return <Clock className="w-4 h-4 text-blue-600" />;
+      default:
+        return <Award className="w-4 h-4 text-gray-600" />;
     }
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h4 className="font-semibold text-ol-brand-500">Conhecimentos do Colaborador</h4>
-        <button
-          onClick={onShowAddKnowledgeModal}
-          className="px-4 py-2 bg-ol-brand-500 text-white rounded-md hover:bg-ol-brand-600 text-sm"
-        >
-          Adicionar Conhecimento
-        </button>
+      {/* ✅ HEADER COM FILTROS E BOTÃO ADICIONAR */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h4 className="font-semibold text-ol-brand-700 mb-2">Conhecimentos do Colaborador</h4>
+          <p className="text-sm text-ol-gray-600">
+            {filteredLinks.length} conhecimento(s) {filter !== 'TODOS' && `com status: ${filter}`}
+          </p>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+          {/* Filtro por status */}
+          <select
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="px-3 py-2 border border-ol-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ol-brand-500 text-sm"
+          >
+            <option value="TODOS">Todos</option>
+            <option value="OBTIDO">Obtidos</option>
+            <option value="OBRIGATORIO">Obrigatórios</option>
+            <option value="DESEJADO">Desejados</option>
+          </select>
+
+          {/* Botão adicionar conhecimento */}
+          <button
+            onClick={handleAddKnowledge}
+            className="px-4 py-2 bg-ol-brand-600 text-white rounded-md hover:bg-ol-brand-700 transition-colors flex items-center space-x-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Adicionar Conhecimento</span>
+          </button>
+        </div>
       </div>
 
-      <div className="space-y-3">
-        {vinculosDoColab.map(vinculo => {
-          const conhecimento = knowledgeCatalog.find(k => k.id === vinculo.learning_item_id);
-          return (
-            <div key={`knowledge-${vinculo.id}`} className="flex items-center justify-between p-4 bg-ol-gray-50 rounded-lg border">
-              <div className="flex-1">
-                <h5 className="font-medium text-ol-gray-900">
-                  {conhecimento?.nome || 'Conhecimento não encontrado'} 
-                  {conhecimento?.tipo && (
-                    <span className="ml-2 text-xs bg-ol-brand-100 text-ol-brand-700 px-2 py-1 rounded">
-                      {conhecimento.tipo}
-                    </span>
+      {/* ✅ LISTA DE CONHECIMENTOS */}
+      {filteredLinks.length > 0 ? (
+        <div className="space-y-4">
+          {filteredLinks.map((link) => {
+            const knowledgeItem = getKnowledgeDetails(link);
+
+            return (
+              <div key={link.id} className="bg-white border border-ol-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start space-x-3 flex-1">
+                    {getStatusIcon(link.status)}
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-semibold text-ol-gray-900 truncate">
+                        {knowledgeItem ? knowledgeItem.nome : `Conhecimento ID: ${link.learning_item_id}`}
+                      </h5>
+                      {knowledgeItem && (
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          <span className="text-xs px-2 py-1 bg-ol-gray-100 text-ol-gray-700 rounded">
+                            {knowledgeItem.tipo}
+                          </span>
+                          {knowledgeItem.categoria && (
+                            <span className="text-xs text-ol-gray-500">
+                              {knowledgeItem.categoria}
+                            </span>
+                          )}
+                          {knowledgeItem.fornecedor && (
+                            <span className="text-xs text-ol-gray-500">
+                              • {knowledgeItem.fornecedor}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end space-y-2">
+                    <div className="flex space-x-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(link.status)}`}>
+                        {link.status}
+                      </span>
+                      {link.prioridade && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(link.prioridade)}`}>
+                          {link.prioridade}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ✅ INFORMAÇÕES DO VÍNCULO */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                  {link.data_alvo && (
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-ol-gray-400" />
+                      <div>
+                        <span className="text-ol-gray-600">Data alvo:</span>
+                        <span className="ml-1 font-medium">{formatDate(link.data_alvo)}</span>
+                      </div>
+                    </div>
                   )}
-                </h5>
-                
-                <div className="flex items-center space-x-4 mt-1 text-sm text-ol-gray-600">
-                  <span className={`px-2 py-1 rounded text-xs ${
-                    vinculo.status === 'OBTIDO' ? 'bg-green-100 text-green-700' :
-                    vinculo.status === 'OBRIGATORIO' ? 'bg-red-100 text-red-700' :
-                    vinculo.status === 'DESEJADO' ? 'bg-blue-100 text-blue-700' :
-                    'bg-ol-brand-100 text-ol-brand-700'
-                  }`}>
-                    {vinculo.status}
-                  </span>
-                  
-                  {vinculo.data_obtencao && (
-                    <span>Obtido: {new Date(vinculo.data_obtencao).toLocaleDateString('pt-BR')}</span>
+
+                  {link.data_obtencao && (
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      <div>
+                        <span className="text-ol-gray-600">Obtido em:</span>
+                        <span className="ml-1 font-medium">{formatDate(link.data_obtencao)}</span>
+                      </div>
+                    </div>
                   )}
-                  
-                  {vinculo.data_expiracao && (
-                    <span>Expira: {new Date(vinculo.data_expiracao).toLocaleDateString('pt-BR')}</span>
-                  )}
-                  
-                  {vinculo.data_alvo && (
-                    <span>Meta: {new Date(vinculo.data_alvo).toLocaleDateString('pt-BR')}</span>
+
+                  {link.data_expiracao && (
+                    <div className="flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 text-yellow-500" />
+                      <div>
+                        <span className="text-ol-gray-600">Expira em:</span>
+                        <span className="ml-1 font-medium">{formatDate(link.data_expiracao)}</span>
+                      </div>
+                    </div>
                   )}
                 </div>
-                
-                {vinculo.anexo_path && (
-                  <div className="mt-2 text-xs text-green-600 flex items-center">
-                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                    Evidência anexada
+
+                {/* ✅ OBSERVAÇÕES */}
+                {link.observacoes && (
+                  <div className="mt-3 pt-3 border-t border-ol-gray-100">
+                    <p className="text-sm text-ol-gray-600">
+                      <strong>Observações:</strong> {link.observacoes}
+                    </p>
+                  </div>
+                )}
+
+                {/* ✅ ANEXO */}
+                {link.anexo_path && (
+                  <div className="mt-3 pt-3 border-t border-ol-gray-100">
+                    <div className="flex items-center space-x-2 text-sm">
+                      <FileText className="w-4 h-4 text-ol-brand-500" />
+                      <span className="text-ol-gray-600">Anexo:</span>
+                      <a
+                        href={link.anexo_path}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-ol-brand-600 hover:text-ol-brand-700 underline"
+                      >
+                        Ver documento
+                      </a>
+                    </div>
                   </div>
                 )}
               </div>
-              
-              <div className="flex items-center space-x-2">
-                {/* Upload de evidência para status OBTIDO */}
-                {vinculo.status === 'OBTIDO' && (
-                  <div>
-                    <input
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => onFileUpload && onFileUpload(e, vinculo.id)}
-                      className="hidden"
-                      id={`kn-upload-${vinculo.id}`}
-                    />
-                    <label
-                      htmlFor={`kn-upload-${vinculo.id}`}
-                      className="cursor-pointer text-xs bg-ol-brand-100 text-ol-brand-700 px-2 py-1 rounded hover:bg-ol-brand-200 transition-colors"
-                    >
-                      📎 {vinculo.anexo_path ? 'Alterar' : 'Anexar'}
-                    </label>
-                  </div>
-                )}
-                
-                {/* Visualizar evidência */}
-                {vinculo.anexo_path && (
-                  <button
-                    onClick={() => viewEvidence(vinculo)}
-                    className="text-blue-600 hover:text-blue-700 text-xs"
-                  >
-                    👁️ Ver
-                  </button>
-                )}
-                
-                {/* Alerta de vencimento */}
-                {vinculo.data_expiracao && 
-                 new Date(vinculo.data_expiracao) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) && (
-                  <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">
-                    {new Date(vinculo.data_expiracao) < new Date() ? 'Vencido' : 'Vencendo'}
-                  </span>
-                )}
-                
-                {/* Botão deletar */}
-                <button
-                  onClick={() => handleDeleteKnowledge(vinculo.id)}
-                  className="text-red-600 hover:text-red-700 p-1"
-                  title="Remover vínculo"
-                >
-                  🗑️
-                </button>
-              </div>
+            );
+          })}
+        </div>
+      ) : (
+        // ✅ ESTADO VAZIO
+        <div className="text-center py-12">
+          <Award className="w-16 h-16 text-ol-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-ol-gray-900 mb-2">
+            {filter === 'TODOS' ?
+              'Nenhum conhecimento cadastrado' :
+              `Nenhum conhecimento com status: ${filter}`
+            }
+          </h3>
+          <p className="text-ol-gray-600 mb-6">
+            {filter === 'TODOS' ?
+              'Comece adicionando certificações, cursos ou formações para este colaborador.' :
+              'Altere o filtro para ver outros conhecimentos.'
+            }
+          </p>
+          <button
+            onClick={handleAddKnowledge}
+            className="px-6 py-3 bg-ol-brand-600 text-white rounded-md hover:bg-ol-brand-700 transition-colors inline-flex items-center space-x-2"
+          >
+            <Plus className="w-5 h-5" />
+            <span>Adicionar Primeiro Conhecimento</span>
+          </button>
+        </div>
+      )}
+
+      {/* ✅ DEBUG INFO (REMOVER EM PRODUÇÃO) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-100 p-3 rounded text-xs">
+          <details>
+            <summary className="cursor-pointer font-semibold">🔍 Debug Info</summary>
+            <div className="mt-2 space-y-1">
+              <div>Employee ID: {employee?.id}</div>
+              <div>Total employeeKnowledge: {employeeKnowledge?.length || 0}</div>
+              <div>Employee Links: {employeeLinks.length}</div>
+              <div>Filtered Links: {filteredLinks.length}</div>
+              <div>Knowledge Catalog: {knowledgeCatalog?.length || 0}</div>
             </div>
-          );
-        })}
-        
-        {/* Estado vazio */}
-        {vinculosDoColab.length === 0 && (
-          <div className="text-center py-8 text-ol-gray-500">
-            <svg className="w-12 h-12 mx-auto mb-4 text-ol-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p>Nenhum conhecimento vinculado para este colaborador</p>
-            <p className="text-xs mt-2">Clique em "Adicionar Conhecimento" para começar</p>
-          </div>
-        )}
-      </div>
+          </details>
+        </div>
+      )}
     </div>
   );
 };
